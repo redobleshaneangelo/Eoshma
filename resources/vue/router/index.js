@@ -189,6 +189,7 @@ const routes = [
     // Payroll
     { path: '/payroll', name: 'payroll', component: Payroll, meta: { requiresAuth: true } },
     { path: '/payroll/runs/:id', name: 'payroll_run_detail', component: PayrollRunDetail, meta: { requiresAuth: true } },
+    { path: '/payroll/runs/:id/view', name: 'payroll_run_view', component: PayrollRunDetail, meta: { requiresAuth: true } },
     { path: '/payroll/runs/:id/computed', name: 'computed_payroll', component: ComputedPayroll, meta: { requiresAuth: true } },
 
     // Leave & Absence

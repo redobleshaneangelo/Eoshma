@@ -68,8 +68,21 @@
                                 <thead class="bg-gray-50 border-b border-gray-200">
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Employee</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Rate</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Days Logged</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Total Hours</th>
+                                        <th v-if="isPending && isApprovalMode" class="px-4 py-3 text-left text-xs font-semibold text-gray-700">
+                                            <div class="flex items-center gap-2">
+                                                Eligible
+                                                <input
+                                                    type="checkbox"
+                                                    :checked="allEligible"
+                                                    :disabled="isEligibilityReadOnly"
+                                                    @change="toggleAllEligible($event.target.checked)"
+                                                    class="h-4 w-4 rounded border-gray-300 text-[#0c8ce9]"
+                                                />
+                                            </div>
+                                        </th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Action</th>
                                     </tr>
                                 </thead>
@@ -79,8 +92,18 @@
                                             <p class="font-semibold">{{ employee.name }}</p>
                                             <p class="text-xs text-gray-500">{{ employee.role }}</p>
                                         </td>
+                                        <td class="px-4 py-3 text-sm text-gray-700">₱{{ formatNumber(employee.rate) }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ employee.daysLogged }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ employee.totalHours }}</td>
+                                        <td v-if="isPending && isApprovalMode" class="px-4 py-3 text-sm text-gray-700">
+                                            <input
+                                                type="checkbox"
+                                                :checked="employee.isEligible"
+                                                :disabled="isEligibilityReadOnly"
+                                                @change="toggleEligibility(employee, $event.target.checked)"
+                                                class="h-4 w-4 rounded border-gray-300 text-[#0c8ce9]"
+                                            />
+                                        </td>
                                         <td class="px-4 py-3">
                                             <button
                                                 @click="openEmployeeAttendance(employee)"
@@ -91,7 +114,7 @@
                                         </td>
                                     </tr>
                                     <tr v-if="attendanceSummary.length === 0">
-                                        <td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500">No attendance summary available.</td>
+                                        <td :colspan="isPending && isApprovalMode ? 6 : 5" class="px-4 py-8 text-center text-sm text-gray-500">No attendance summary available.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -103,7 +126,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                             <div>
                                 <label class="block text-xs font-semibold text-gray-700 mb-2">Employee</label>
-                                <select v-model="newAllowance.employeeId" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <select v-model="newAllowance.employeeId" :disabled="isReadOnly" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-500">
                                     <option value="">Select employee</option>
                                     <option v-for="employee in attendanceSummary" :key="employee.id" :value="employee.id">
                                         {{ employee.name }}
@@ -112,20 +135,21 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-gray-700 mb-2">Allowance Type</label>
-                                <input v-model="newAllowance.type" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Meal, transport" />
+                                <input v-model="newAllowance.type" :disabled="isReadOnly" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-500" placeholder="Meal, transport" />
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-gray-700 mb-2">Amount</label>
-                                <input v-model.number="newAllowance.amount" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0" />
+                                <input v-model.number="newAllowance.amount" :disabled="isReadOnly" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-500" placeholder="0" />
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-gray-700 mb-2">Notes</label>
-                                <input v-model="newAllowance.notes" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Optional" />
+                                <input v-model="newAllowance.notes" :disabled="isReadOnly" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-500" placeholder="Optional" />
                             </div>
                             <div class="flex items-end">
                                 <button
                                     @click="addAllowance"
-                                    class="w-full px-4 py-2 text-sm font-semibold text-white bg-[#0c8ce9] rounded-lg hover:bg-blue-700"
+                                    :disabled="isReadOnly"
+                                    class="w-full px-4 py-2 text-sm font-semibold text-white bg-[#0c8ce9] rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500"
                                 >
                                     Assign Allowance
                                 </button>
@@ -139,6 +163,7 @@
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Type</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Amount</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Notes</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">
@@ -147,9 +172,27 @@
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ item.type }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-700">₱{{ formatNumber(item.amount) }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ item.notes }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-700">
+                                            <div class="flex items-center gap-2">
+                                                <button
+                                                    @click="editAllowance(item)"
+                                                    :disabled="isReadOnly"
+                                                    class="px-3 py-1 text-xs font-semibold text-white bg-[#0c8ce9] rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    @click="removeAllowance(item)"
+                                                    :disabled="isReadOnly"
+                                                    class="px-3 py-1 text-xs font-semibold text-red-700 border border-red-200 rounded hover:bg-red-50 disabled:text-gray-400 disabled:border-gray-200 disabled:bg-gray-50"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                     <tr v-if="allowanceAssignments.length === 0">
-                                        <td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500">No allowances assigned.</td>
+                                        <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-500">No allowances assigned.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -161,7 +204,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                             <div>
                                 <label class="block text-xs font-semibold text-gray-700 mb-2">Employee</label>
-                                <select v-model="newDeduction.employeeId" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <select v-model="newDeduction.employeeId" :disabled="isReadOnly" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-500">
                                     <option value="">Select employee</option>
                                     <option v-for="employee in attendanceSummary" :key="employee.id" :value="employee.id">
                                         {{ employee.name }}
@@ -170,20 +213,21 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-gray-700 mb-2">Deduction Type</label>
-                                <input v-model="newDeduction.type" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="SSS, Loan" />
+                                <input v-model="newDeduction.type" :disabled="isReadOnly" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-500" placeholder="SSS, Loan" />
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-gray-700 mb-2">Amount</label>
-                                <input v-model.number="newDeduction.amount" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0" />
+                                <input v-model.number="newDeduction.amount" :disabled="isReadOnly" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-500" placeholder="0" />
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-gray-700 mb-2">Notes</label>
-                                <input v-model="newDeduction.notes" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Optional" />
+                                <input v-model="newDeduction.notes" :disabled="isReadOnly" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-500" placeholder="Optional" />
                             </div>
                             <div class="flex items-end">
                                 <button
                                     @click="addDeduction"
-                                    class="w-full px-4 py-2 text-sm font-semibold text-white bg-[#0c8ce9] rounded-lg hover:bg-blue-700"
+                                    :disabled="isReadOnly"
+                                    class="w-full px-4 py-2 text-sm font-semibold text-white bg-[#0c8ce9] rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500"
                                 >
                                     Assign Deduction
                                 </button>
@@ -197,6 +241,7 @@
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Type</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Amount</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Notes</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">
@@ -205,9 +250,27 @@
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ item.type }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-700">₱{{ formatNumber(item.amount) }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ item.notes }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-700">
+                                            <div class="flex items-center gap-2">
+                                                <button
+                                                    @click="editDeduction(item)"
+                                                    :disabled="isReadOnly"
+                                                    class="px-3 py-1 text-xs font-semibold text-white bg-[#0c8ce9] rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    @click="removeDeduction(item)"
+                                                    :disabled="isReadOnly"
+                                                    class="px-3 py-1 text-xs font-semibold text-red-700 border border-red-200 rounded hover:bg-red-50 disabled:text-gray-400 disabled:border-gray-200 disabled:bg-gray-50"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                     <tr v-if="deductionAssignments.length === 0">
-                                        <td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500">No deductions assigned.</td>
+                                        <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-500">No deductions assigned.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -216,7 +279,26 @@
 
                     <div v-if="activeTab === 'statutory'" class="space-y-4">
                         <h2 class="text-lg font-semibold text-gray-900">Statutory Compliance</h2>
-                        <p class="text-sm text-gray-600">Review statutory computations and compliance requirements for this payroll period.</p>
+                        <div class="text-sm text-gray-600 space-y-2">
+                            <p>Review statutory computations and compliance requirements for this payroll period.</p>
+                            <div class="flex flex-wrap items-center gap-3">
+                                <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Basis</span>
+                                <select
+                                    v-model="statutoryBasis"
+                                    @change="fetchStatutoryCompliance"
+                                    class="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                >
+                                    <option value="monthly">Monthly-equivalent</option>
+                                    <option value="period">Per-period</option>
+                                </select>
+                                <span class="text-xs text-gray-500">
+                                    {{ statutoryBasis === 'monthly'
+                                        ? 'Scaled to monthly based on frequency.'
+                                        : 'Uses only this payroll period.'
+                                    }}
+                                </span>
+                            </div>
+                        </div>
                         <div class="border border-gray-200 rounded-lg overflow-hidden">
                             <table class="w-full">
                                 <thead class="bg-gray-50 border-b border-gray-200">
@@ -280,8 +362,16 @@
                 </div>
             </div>
 
-            <div class="flex justify-end" v-if="showPrimaryAction">
+            <div class="flex flex-wrap justify-end gap-3" v-if="showPrimaryAction || (isPending && isApprovalMode && !isViewOnly)">
                 <button
+                    v-if="isPending && isApprovalMode && !isViewOnly"
+                    @click="approvePayroll"
+                    class="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                    Approve Payroll
+                </button>
+                <button
+                    v-if="showPrimaryAction"
                     @click="handlePrimaryAction"
                     class="px-4 py-2 text-sm font-semibold text-white bg-[#0c8ce9] rounded-lg hover:bg-blue-700 transition-colors"
                 >
@@ -336,6 +426,8 @@
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Time Out</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Payroll Start</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Payroll End</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Payroll Type</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Payroll Frequency</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Action</th>
                                 </tr>
                             </thead>
@@ -344,8 +436,10 @@
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ formatDate(record.date) }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ record.timeIn || '--' }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ record.timeOut || '--' }}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-700">{{ formatDate(run.startDate) }}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-700">{{ formatDate(run.endDate) }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-700">{{ formatDate(record.payrollStart) }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-700">{{ formatDate(record.payrollEnd) }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-700">{{ record.payrollType }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-700">{{ record.payrollFrequency }}</td>
                                     <td class="px-4 py-3">
                                         <button
                                             @click="openAttendanceRecord(record)"
@@ -356,7 +450,7 @@
                                     </td>
                                 </tr>
                                 <tr v-if="selectedEmployee.records.length === 0">
-                                    <td colspan="6" class="px-4 py-6 text-center text-sm text-gray-500">No attendance records.</td>
+                                    <td colspan="8" class="px-4 py-6 text-center text-sm text-gray-500">No attendance records.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -442,6 +536,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AuthLayout from '@/views/Layouts/AuthLayout.vue'
 import Swal from 'sweetalert2'
+import axios from 'axios'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -450,6 +545,13 @@ const runId = Number(route.params.id)
 
 onMounted(() => {
     auth.pageTitle = 'Payroll Run'
+    applyQueryRun()
+    fetchRun()
+    fetchAttendanceSummary()
+    fetchAllowances()
+    fetchDeductions()
+    fetchStatutoryCompliance()
+    fetchComputedPayroll()
 })
 
 const tabs = [
@@ -462,33 +564,7 @@ const tabs = [
 
 const activeTab = ref('attendance')
 
-const attendanceSummary = ref([
-    {
-        id: 1,
-        name: 'John Davis',
-        role: 'Project Manager',
-        daysLogged: 10,
-        totalHours: 80,
-        records: [
-            { date: '2026-01-03', timeIn: '08:10 AM', timeOut: '05:12 PM', timeInPhoto: 'In Photo', timeOutPhoto: 'Out Photo' },
-            { date: '2026-01-04', timeIn: '08:08 AM', timeOut: '05:05 PM', timeInPhoto: 'In Photo', timeOutPhoto: 'Out Photo' }
-        ],
-        incidents: [
-            { id: 1, name: 'Late arrival notice', date: '2026-01-05' }
-        ]
-    },
-    {
-        id: 2,
-        name: 'Sarah Anderson',
-        role: 'Lead Engineer',
-        daysLogged: 9,
-        totalHours: 72,
-        records: [
-            { date: '2026-01-03', timeIn: '08:40 AM', timeOut: '05:20 PM', timeInPhoto: 'In Photo', timeOutPhoto: 'Out Photo' }
-        ],
-        incidents: []
-    }
-])
+const attendanceSummary = ref([])
 
 const employeeTabs = [
     { key: 'attendance', label: 'Attendance' },
@@ -538,19 +614,62 @@ const handlePrimaryAction = () => {
             confirmButtonText: 'Yes, release'
         }).then((result) => {
             if (result.isConfirmed) {
-                Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: 'success',
-                    title: 'Payslips released',
-                    showConfirmButton: false,
-                    timer: 2000
-                })
+                axios.post(`/api/payroll-runs/${runId}/release-payslip`)
+                    .then((response) => {
+                        const payload = response.data?.data
+                        if (payload) {
+                            run.value = normalizeRun(payload)
+                        }
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'success',
+                            title: 'Payslips released',
+                            showConfirmButton: false,
+                            timer: 2000
+                        })
+                        router.push({ name: 'payroll', query: { tab: 'payroll_runs' } })
+                    })
+                    .catch((error) => {
+                        console.error('Failed to release payslips', error)
+                    })
             }
         })
         return
     }
     goToComputedPayroll()
+}
+
+const approvePayroll = () => {
+    Swal.fire({
+        title: 'Approve payroll? ',
+        text: 'This will mark the payroll run as approved.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#16a34a',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, approve'
+    }).then((result) => {
+        if (!result.isConfirmed) return
+        axios.post(`/api/payroll-runs/${runId}/approve`)
+            .then((response) => {
+                const payload = response.data?.data
+                if (payload) {
+                    run.value = normalizeRun(payload)
+                }
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: 'Payroll approved',
+                    showConfirmButton: false,
+                    timer: 2000
+                })
+            })
+            .catch((error) => {
+                console.error('Failed to approve payroll', error)
+            })
+    })
 }
 
 const newAllowance = ref({
@@ -562,17 +681,32 @@ const newAllowance = ref({
 
 const allowanceAssignments = ref([])
 
-const addAllowance = () => {
-    const employee = attendanceSummary.value.find(item => item.id === newAllowance.value.employeeId)
+const addAllowance = async () => {
+    if (isReadOnly.value) return
+    const employeeId = Number(newAllowance.value.employeeId)
+    const employee = attendanceSummary.value.find(item => item.id === employeeId)
     if (!employee || !newAllowance.value.type || !newAllowance.value.amount) return
-    allowanceAssignments.value.push({
-        id: Date.now(),
-        employeeName: employee.name,
-        type: newAllowance.value.type,
-        amount: newAllowance.value.amount,
-        notes: newAllowance.value.notes || '-'
-    })
-    newAllowance.value = { employeeId: '', type: '', amount: 0, notes: '' }
+    try {
+        const response = await axios.post(`/api/payroll-runs/${runId}/allowances`, {
+            employee_test_id: employeeId,
+            type: newAllowance.value.type,
+            amount: newAllowance.value.amount,
+            notes: newAllowance.value.notes
+        })
+        const saved = response.data?.data
+        if (saved) {
+            allowanceAssignments.value.unshift({
+                id: saved.id,
+                employeeName: saved.employeeName || employee.name,
+                type: saved.type,
+                amount: saved.amount,
+                notes: saved.notes || '-'
+            })
+        }
+        newAllowance.value = { employeeId: '', type: '', amount: 0, notes: '' }
+    } catch (error) {
+        console.error('Failed to add allowance', error)
+    }
 }
 
 const newDeduction = ref({
@@ -584,150 +718,373 @@ const newDeduction = ref({
 
 const deductionAssignments = ref([])
 
-const addDeduction = () => {
-    const employee = attendanceSummary.value.find(item => item.id === newDeduction.value.employeeId)
+const addDeduction = async () => {
+    if (isReadOnly.value) return
+    const employeeId = Number(newDeduction.value.employeeId)
+    const employee = attendanceSummary.value.find(item => item.id === employeeId)
     if (!employee || !newDeduction.value.type || !newDeduction.value.amount) return
-    deductionAssignments.value.push({
-        id: Date.now(),
-        employeeName: employee.name,
-        type: newDeduction.value.type,
-        amount: newDeduction.value.amount,
-        notes: newDeduction.value.notes || '-'
-    })
-    newDeduction.value = { employeeId: '', type: '', amount: 0, notes: '' }
+    try {
+        const response = await axios.post(`/api/payroll-runs/${runId}/deductions`, {
+            employee_test_id: employeeId,
+            type: newDeduction.value.type,
+            amount: newDeduction.value.amount,
+            notes: newDeduction.value.notes
+        })
+        const saved = response.data?.data
+        if (saved) {
+            deductionAssignments.value.unshift({
+                id: saved.id,
+                employeeName: saved.employeeName || employee.name,
+                type: saved.type,
+                amount: saved.amount,
+                notes: saved.notes || '-'
+            })
+        }
+        newDeduction.value = { employeeId: '', type: '', amount: 0, notes: '' }
+    } catch (error) {
+        console.error('Failed to add deduction', error)
+    }
 }
 
-const statutoryCompliance = ref([
-    {
-        id: 1,
-        name: 'SSS Contribution',
-        coverage: 'Jan 01 - Jan 15, 2026',
-        employeeShare: 18500,
-        employerShare: 27500,
-        total: 46000,
-        dueDate: '2026-02-15',
-        status: 'Pending'
-    },
-    {
-        id: 2,
-        name: 'PhilHealth Premium',
-        coverage: 'Jan 01 - Jan 15, 2026',
-        employeeShare: 9800,
-        employerShare: 9800,
-        total: 19600,
-        dueDate: '2026-02-15',
-        status: 'Pending'
-    },
-    {
-        id: 3,
-        name: 'Pag-IBIG Fund',
-        coverage: 'Jan 01 - Jan 15, 2026',
-        employeeShare: 4800,
-        employerShare: 4800,
-        total: 9600,
-        dueDate: '2026-02-15',
-        status: 'Pending'
-    },
-    {
-        id: 4,
-        name: 'Withholding Tax',
-        coverage: 'Jan 01 - Jan 15, 2026',
-        employeeShare: 6200,
-        employerShare: 0,
-        total: 6200,
-        dueDate: '2026-02-10',
-        status: 'Scheduled'
-    }
-])
+const statutoryCompliance = ref([])
+const statutoryBasis = ref('monthly')
 
-const payrollRuns = [
-    {
-        id: 1,
-        name: 'January Bi-Weekly Payroll',
-        frequency: 'Bi-Weekly',
-        startDate: '2026-01-01',
-        endDate: '2026-01-15',
-        group: 'fixed',
-        status: 'Approved',
-        payDate: '2026-01-20',
-        description: 'Payroll run for first half of January.'
-    },
-    {
-        id: 2,
-        name: 'Site Crew Weekly Payroll',
-        frequency: 'Weekly',
-        startDate: '2026-01-08',
-        endDate: '2026-01-14',
-        group: 'hour',
-        status: 'Pending',
-        payDate: '2026-01-18',
-        description: 'Weekly payroll for site crew.'
-    },
-    {
-        id: 3,
-        name: 'Project Support Payroll',
-        frequency: 'Monthly',
-        startDate: '2026-01-01',
-        endDate: '2026-01-31',
-        group: 'day',
-        status: 'Draft',
-        payDate: '2026-02-05',
-        description: 'Draft payroll for support team.'
-    }
-]
+const defaultRun = () => ({
+    id: runId || 0,
+    name: 'Payroll Run',
+    frequency: '--',
+    startDate: '',
+    endDate: '',
+    group: 'fixed',
+    status: 'Draft',
+    payDate: '',
+    description: 'Payroll run details.'
+})
 
-const queryRun = computed(() => {
-    const query = route.query
-    if (!query || !query.name) return null
+const run = ref(defaultRun())
+
+const normalizeRun = (payload) => {
+    if (!payload) return defaultRun()
     return {
-        id: Number(route.params.id) || 0,
-        name: String(query.name || 'Draft Payroll Run'),
-        frequency: String(query.frequency || 'Weekly'),
-        startDate: String(query.startDate || ''),
-        endDate: String(query.endDate || ''),
-        group: String(query.group || 'fixed'),
-        status: String(query.status || 'Draft'),
-        payDate: String(query.payDate || ''),
-        description: String(query.description || 'Draft payroll run.')
+        id: payload.id || runId || 0,
+        name: payload.name || 'Payroll Run',
+        frequency: payload.frequency || '--',
+        startDate: payload.start_date || payload.startDate || '',
+        endDate: payload.end_date || payload.endDate || '',
+        group: payload.group || 'fixed',
+        status: payload.status || 'Draft',
+        payDate: payload.pay_date || payload.payDate || '',
+        description: payload.description || 'Payroll run details.'
     }
+}
+
+const applyQueryRun = () => {
+    const query = route.query
+    if (!query || !query.name) return
+    run.value = normalizeRun(query)
+}
+
+const fetchRun = async () => {
+    if (!runId) return
+    try {
+        const response = await axios.get(`/api/payroll-runs/${runId}`)
+        const payload = response.data?.data
+        if (payload) {
+            run.value = normalizeRun(payload)
+        }
+    } catch (error) {
+        console.error('Failed to load payroll run', error)
+    }
+}
+
+const mapAttendance = (payload) => ({
+    id: payload.id,
+    name: payload.name,
+    role: payload.role,
+    rate: payload.rate,
+    daysLogged: payload.daysLogged,
+    totalHours: payload.totalHours,
+    isEligible: payload.isEligible,
+    records: payload.records || [],
+    incidents: payload.incidents || []
 })
 
-const run = computed(() => {
-    return payrollRuns.find(item => item.id === runId) || queryRun.value || payrollRuns[0]
+const fetchAttendanceSummary = async () => {
+    if (!runId) return
+    try {
+        const response = await axios.get(`/api/payroll-runs/${runId}/attendance-summary`)
+        const rows = response.data?.data || []
+        attendanceSummary.value = rows.map(mapAttendance)
+    } catch (error) {
+        console.error('Failed to load attendance summary', error)
+    }
+}
+
+const allEligible = computed(() => {
+    if (!attendanceSummary.value.length) return false
+    return attendanceSummary.value.every(employee => employee.isEligible)
 })
+
+const toggleEligibility = async (employee, checked) => {
+    if (isEligibilityReadOnly.value) return
+    try {
+        const response = await axios.post(`/api/payroll-runs/${runId}/eligibilities`, {
+            employee_test_id: employee.id,
+            is_eligible: checked
+        })
+        const data = response.data?.data
+        if (data) {
+            attendanceSummary.value = attendanceSummary.value.map(item =>
+                item.id === employee.id ? { ...item, isEligible: data.isEligible } : item
+            )
+            fetchComputedPayroll()
+            fetchStatutoryCompliance()
+        }
+    } catch (error) {
+        console.error('Failed to update eligibility', error)
+    }
+}
+
+const toggleAllEligible = async (checked) => {
+    if (isEligibilityReadOnly.value) return
+    try {
+        const employeeIds = attendanceSummary.value.map(employee => employee.id)
+        await axios.post(`/api/payroll-runs/${runId}/eligibilities/bulk`, {
+            employee_test_ids: employeeIds,
+            is_eligible: checked
+        })
+        attendanceSummary.value = attendanceSummary.value.map(employee => ({
+            ...employee,
+            isEligible: checked
+        }))
+        fetchComputedPayroll()
+        fetchStatutoryCompliance()
+    } catch (error) {
+        console.error('Failed to update eligibility', error)
+    }
+}
+
+const fetchAllowances = async () => {
+    if (!runId) return
+    try {
+        const response = await axios.get(`/api/payroll-runs/${runId}/allowances`)
+        const rows = response.data?.data || []
+        allowanceAssignments.value = rows.map(item => ({
+            id: item.id,
+            employeeName: item.employeeName,
+            type: item.type,
+            amount: item.amount,
+            notes: item.notes || '-'
+        }))
+    } catch (error) {
+        console.error('Failed to load allowances', error)
+    }
+}
+
+const editAllowance = async (item) => {
+    const result = await Swal.fire({
+        title: 'Edit allowance',
+        html: `
+            <div class="text-left">
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Type</label>
+                <input id="allowance-type" class="swal2-input" value="${item.type}">
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Amount</label>
+                <input id="allowance-amount" class="swal2-input" type="number" min="0" value="${item.amount}">
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Notes</label>
+                <input id="allowance-notes" class="swal2-input" value="${item.notes}">
+            </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        preConfirm: () => {
+            const type = document.getElementById('allowance-type').value.trim()
+            const amount = Number(document.getElementById('allowance-amount').value)
+            const notes = document.getElementById('allowance-notes').value.trim()
+            if (!type || Number.isNaN(amount)) {
+                Swal.showValidationMessage('Type and amount are required')
+                return null
+            }
+            return { type, amount, notes }
+        }
+    })
+
+    if (!result.isConfirmed || !result.value) return
+    try {
+        const response = await axios.patch(`/api/payroll-runs/${runId}/allowances/${item.id}`, {
+            type: result.value.type,
+            amount: result.value.amount,
+            notes: result.value.notes
+        })
+        const saved = response.data?.data
+        if (saved) {
+            allowanceAssignments.value = allowanceAssignments.value.map(entry =>
+                entry.id === item.id
+                    ? { ...entry, type: saved.type, amount: saved.amount, notes: saved.notes || '-' }
+                    : entry
+            )
+        }
+    } catch (error) {
+        console.error('Failed to update allowance', error)
+    }
+}
+
+const removeAllowance = async (item) => {
+    const result = await Swal.fire({
+        title: 'Remove allowance?',
+        text: `Remove ${item.type} for ${item.employeeName}?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#0c8ce9',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, remove'
+    })
+
+    if (!result.isConfirmed) return
+    try {
+        await axios.delete(`/api/payroll-runs/${runId}/allowances/${item.id}`)
+        allowanceAssignments.value = allowanceAssignments.value.filter(entry => entry.id !== item.id)
+    } catch (error) {
+        console.error('Failed to remove allowance', error)
+    }
+}
+
+const fetchDeductions = async () => {
+    if (!runId) return
+    try {
+        const response = await axios.get(`/api/payroll-runs/${runId}/deductions`)
+        const rows = response.data?.data || []
+        deductionAssignments.value = rows.map(item => ({
+            id: item.id,
+            employeeName: item.employeeName,
+            type: item.type,
+            amount: item.amount,
+            notes: item.notes || '-'
+        }))
+    } catch (error) {
+        console.error('Failed to load deductions', error)
+    }
+}
+
+const editDeduction = async (item) => {
+    const result = await Swal.fire({
+        title: 'Edit deduction',
+        html: `
+            <div class="text-left">
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Type</label>
+                <input id="deduction-type" class="swal2-input" value="${item.type}">
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Amount</label>
+                <input id="deduction-amount" class="swal2-input" type="number" min="0" value="${item.amount}">
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Notes</label>
+                <input id="deduction-notes" class="swal2-input" value="${item.notes}">
+            </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        preConfirm: () => {
+            const type = document.getElementById('deduction-type').value.trim()
+            const amount = Number(document.getElementById('deduction-amount').value)
+            const notes = document.getElementById('deduction-notes').value.trim()
+            if (!type || Number.isNaN(amount)) {
+                Swal.showValidationMessage('Type and amount are required')
+                return null
+            }
+            return { type, amount, notes }
+        }
+    })
+
+    if (!result.isConfirmed || !result.value) return
+    try {
+        const response = await axios.patch(`/api/payroll-runs/${runId}/deductions/${item.id}`, {
+            type: result.value.type,
+            amount: result.value.amount,
+            notes: result.value.notes
+        })
+        const saved = response.data?.data
+        if (saved) {
+            deductionAssignments.value = deductionAssignments.value.map(entry =>
+                entry.id === item.id
+                    ? { ...entry, type: saved.type, amount: saved.amount, notes: saved.notes || '-' }
+                    : entry
+            )
+        }
+    } catch (error) {
+        console.error('Failed to update deduction', error)
+    }
+}
+
+const removeDeduction = async (item) => {
+    const result = await Swal.fire({
+        title: 'Remove deduction?',
+        text: `Remove ${item.type} for ${item.employeeName}?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#0c8ce9',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, remove'
+    })
+
+    if (!result.isConfirmed) return
+    try {
+        await axios.delete(`/api/payroll-runs/${runId}/deductions/${item.id}`)
+        deductionAssignments.value = deductionAssignments.value.filter(entry => entry.id !== item.id)
+    } catch (error) {
+        console.error('Failed to remove deduction', error)
+    }
+}
+
+const fetchStatutoryCompliance = async () => {
+    if (!runId) return
+    try {
+        const response = await axios.get(`/api/payroll-runs/${runId}/statutory-compliance`, {
+            params: { basis: statutoryBasis.value }
+        })
+        const rows = response.data?.data || []
+        statutoryCompliance.value = rows
+    } catch (error) {
+        console.error('Failed to load statutory compliance', error)
+    }
+}
+
+const isViewOnly = computed(() => route.name === 'payroll_run_view')
+const isApprovalMode = computed(() => route.query?.mode === 'approval')
+const isApproved = computed(() => run.value.status === 'Approved')
+const isPending = computed(() => run.value.status === 'Pending')
+const isCompleted = computed(() => run.value.status === 'Completed')
+const isReadOnly = computed(() => isPending.value || isApproved.value || isCompleted.value || isViewOnly.value)
+const isEligibilityReadOnly = computed(() => isApproved.value || isCompleted.value || isViewOnly.value || (isPending.value && !isApprovalMode.value))
 
 const availableTabs = computed(() => {
-    if (run.value.status === 'Approved' || run.value.status === 'Pending') {
+    if (isApproved.value || isPending.value || isCompleted.value || isViewOnly.value) {
         return tabs
     }
     return tabs.filter(tab => tab.key !== 'computed')
 })
 
-const isApproved = computed(() => run.value.status === 'Approved')
-const isPending = computed(() => run.value.status === 'Pending')
-const showPrimaryAction = computed(() => !isPending.value)
+const showPrimaryAction = computed(() => !isPending.value && !isCompleted.value && !isViewOnly.value)
 
 const primaryActionLabel = computed(() => {
     return isApproved.value ? 'Release Payslip' : 'Compute Payroll'
 })
 
-const computedPayrollRows = computed(() => {
-    const inputs = [
-        { id: 1, employee: 'John Davis', role: 'Project Manager', basicPay: 35000, allowance: 2000, deductions: 1500 },
-        { id: 2, employee: 'Sarah Anderson', role: 'Lead Engineer', basicPay: 28000, allowance: 1500, deductions: 1200 },
-        { id: 3, employee: 'Michael Chen', role: 'QA Lead', basicPay: 42000, allowance: 2500, deductions: 1800 }
-    ]
-    return inputs.map(item => ({
-        ...item,
-        netPay: item.basicPay + item.allowance - item.deductions
-    }))
-})
+const computedPayrollRows = ref([])
+
+const fetchComputedPayroll = async () => {
+    if (!runId) return
+    try {
+        const response = await axios.get(`/api/payroll-runs/${runId}/computed-payroll`)
+        const rows = response.data?.data || []
+        computedPayrollRows.value = rows
+    } catch (error) {
+        console.error('Failed to load computed payroll', error)
+    }
+}
 
 const getStatusClasses = (status) => {
     const map = {
         Draft: 'bg-gray-200 text-gray-700',
         Pending: 'bg-yellow-100 text-yellow-800',
-        Approved: 'bg-green-100 text-green-800'
+        Approved: 'bg-green-100 text-green-800',
+        Completed: 'bg-blue-100 text-blue-800'
     }
     return map[status] || 'bg-gray-100 text-gray-700'
 }
