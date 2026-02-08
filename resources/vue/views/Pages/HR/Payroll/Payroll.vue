@@ -47,7 +47,7 @@
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Status</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Pay Date</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Description</th>
-                                    <th v-if="activeTab !== 'payroll_runs'" class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Action</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Action</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -76,7 +76,7 @@
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ formatDate(run.payDate) }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ run.description }}</td>
-                                    <td v-if="activeTab !== 'payroll_runs'" class="px-4 py-3">
+                                    <td class="px-4 py-3">
                                         <button
                                             @click="openPayrollRun(run)"
                                             class="px-3 py-1 text-xs font-semibold text-white bg-[#0c8ce9] rounded hover:bg-blue-700"
@@ -86,7 +86,7 @@
                                     </td>
                                 </tr>
                                 <tr v-if="filteredPayrollRuns.length === 0">
-                                    <td :colspan="activeTab === 'payroll_runs' ? 7 : 8" class="px-4 py-8 text-center text-sm text-gray-500">
+                                    <td colspan="8" class="px-4 py-8 text-center text-sm text-gray-500">
                                         No payroll runs available
                                     </td>
                                 </tr>
@@ -123,12 +123,16 @@
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Payroll Frequency</label>
-                    <input
+                    <select
                         v-model="newPayrollRun.frequency"
-                        type="text"
                         class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0c8ce9] focus:border-transparent"
-                        placeholder="e.g. Bi-Weekly"
-                    />
+                    >
+                        <option value="">Select frequency</option>
+                        <option value="Monthly">Monthly</option>
+                        <option value="Semi-Monthly">Semi-Monthly</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Bi-Weekly">Bi-Weekly</option>
+                    </select>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -197,17 +201,33 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AuthLayout from '@/views/Layouts/AuthLayout.vue'
+import axios from 'axios'
+import Swal from 'sweetalert2'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 onMounted(() => {
     auth.pageTitle = 'Payroll'
+    fetchPayrollRuns()
+    if (route.query.tab) {
+        activeTab.value = String(route.query.tab)
+    }
 })
+
+watch(
+    () => route.query.tab,
+    (value) => {
+        if (value) {
+            activeTab.value = String(value)
+        }
+    }
+)
 
 const tabs = [
     { key: 'payroll_runs', label: 'Payroll Runs' },
@@ -219,41 +239,29 @@ const tabs = [
 const activeTab = ref('payroll_runs')
 const showCreateModal = ref(false)
 
-const payrollRuns = ref([
-    {
-        id: 1,
-        name: 'January Bi-Weekly Payroll',
-        frequency: 'Bi-Weekly',
-        startDate: '2026-01-01',
-        endDate: '2026-01-15',
-        group: 'fixed',
-        status: 'Approved',
-        payDate: '2026-01-20',
-        description: 'Payroll run for first half of January.'
-    },
-    {
-        id: 2,
-        name: 'Site Crew Weekly Payroll',
-        frequency: 'Weekly',
-        startDate: '2026-01-08',
-        endDate: '2026-01-14',
-        group: 'hour',
-        status: 'Pending',
-        payDate: '2026-01-18',
-        description: 'Weekly payroll for site crew.'
-    },
-    {
-        id: 3,
-        name: 'Project Support Payroll',
-        frequency: 'Monthly',
-        startDate: '2026-01-01',
-        endDate: '2026-01-31',
-        group: 'day',
-        status: 'Draft',
-        payDate: '2026-02-05',
-        description: 'Draft payroll for support team.'
+const payrollRuns = ref([])
+
+const mapRun = (payload) => ({
+    id: payload.id,
+    name: payload.name,
+    frequency: payload.frequency,
+    startDate: payload.start_date,
+    endDate: payload.end_date,
+    group: payload.group,
+    status: payload.status,
+    payDate: payload.pay_date,
+    description: payload.description
+})
+
+const fetchPayrollRuns = async () => {
+    try {
+        const response = await axios.get('/api/payroll-runs')
+        const rows = response.data?.data || []
+        payrollRuns.value = rows.map(mapRun)
+    } catch (error) {
+        console.error('Failed to load payroll runs', error)
     }
-])
+}
 
 const newPayrollRun = ref({
     name: '',
@@ -267,7 +275,7 @@ const newPayrollRun = ref({
 })
 
 const filteredPayrollRuns = computed(() => {
-    if (activeTab.value === 'payroll_runs') return payrollRuns.value
+    if (activeTab.value === 'payroll_runs') return payrollRuns.value.filter(run => run.status === 'Completed')
     if (activeTab.value === 'draft') return payrollRuns.value.filter(run => run.status === 'Draft')
     if (activeTab.value === 'pending') return payrollRuns.value.filter(run => run.status === 'Pending')
     if (activeTab.value === 'approved') return payrollRuns.value.filter(run => run.status === 'Approved')
@@ -275,35 +283,69 @@ const filteredPayrollRuns = computed(() => {
 })
 
 const getActionLabel = computed(() => {
+    if (activeTab.value === 'payroll_runs') return 'View'
     if (activeTab.value === 'draft') return 'Open'
     if (activeTab.value === 'pending') return 'View'
     if (activeTab.value === 'approved') return 'View'
     return 'Open'
 })
 
-const createPayrollRun = () => {
+const createPayrollRun = async () => {
     if (!newPayrollRun.value.name) return
-    const nextId = Math.max(0, ...payrollRuns.value.map(run => run.id)) + 1
-    const newRun = { id: nextId, ...newPayrollRun.value }
-    payrollRuns.value.unshift(newRun)
-    closeCreateModal()
-    router.push({
-        name: 'payroll_run_detail',
-        params: { id: nextId },
-        query: {
-            name: newRun.name,
-            frequency: newRun.frequency,
-            startDate: newRun.startDate,
-            endDate: newRun.endDate,
-            group: newRun.group,
-            status: newRun.status,
-            payDate: newRun.payDate,
-            description: newRun.description
+    try {
+        const payload = {
+            name: newPayrollRun.value.name,
+            frequency: newPayrollRun.value.frequency,
+            start_date: newPayrollRun.value.startDate,
+            end_date: newPayrollRun.value.endDate,
+            group: newPayrollRun.value.group,
+            status: newPayrollRun.value.status,
+            pay_date: newPayrollRun.value.payDate,
+            description: newPayrollRun.value.description
         }
-    })
+        const response = await axios.post('/api/payroll-runs', payload)
+        const savedRun = response.data?.data
+        if (savedRun?.id) {
+            payrollRuns.value.unshift(mapRun(savedRun))
+            closeCreateModal()
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Payroll run created',
+                showConfirmButton: false,
+                timer: 2000
+            })
+            router.push({
+                name: 'payroll_run_detail',
+                params: { id: savedRun.id },
+                query: {
+                    name: savedRun.name,
+                    frequency: savedRun.frequency,
+                    startDate: savedRun.start_date,
+                    endDate: savedRun.end_date,
+                    group: savedRun.group,
+                    status: savedRun.status,
+                    payDate: savedRun.pay_date,
+                    description: savedRun.description
+                }
+            })
+        }
+    } catch (error) {
+        console.error('Failed to create payroll run', error)
+        Swal.fire({
+            icon: 'error',
+            title: 'Create failed',
+            text: 'Please check the form and try again.'
+        })
+    }
 }
 
 const openPayrollRun = (run) => {
+    if (activeTab.value === 'payroll_runs') {
+        router.push({ name: 'payroll_run_view', params: { id: run.id } })
+        return
+    }
     router.push({ name: 'payroll_run_detail', params: { id: run.id } })
 }
 
@@ -333,6 +375,7 @@ const getStatusClasses = (status) => {
 
 const getStatusLabel = (status) => {
     const map = {
+        Completed: 'Completed',
         Draft: 'Draft',
         Pending: 'Draft Pending',
         Approved: 'Approved'

@@ -72,34 +72,30 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AuthLayout from '@/views/Layouts/AuthLayout.vue'
 import Swal from 'sweetalert2'
+import axios from 'axios'
 
 const route = useRoute()
 const router = useRouter()
 const runId = route.params.id
 
-const payrollInputs = [
-    { id: 1, employee: 'John Davis', role: 'Project Manager', basicPay: 35000, allowance: 2000, deductions: 1500 },
-    { id: 2, employee: 'Sarah Anderson', role: 'Lead Engineer', basicPay: 28000, allowance: 1500, deductions: 1200 },
-    { id: 3, employee: 'Michael Chen', role: 'QA Lead', basicPay: 42000, allowance: 2500, deductions: 1800 }
-]
+const computedRows = ref([])
 
-const computedRows = computed(() => {
-    return payrollInputs.map(item => {
-        const netPay = item.basicPay + item.allowance - item.deductions
-        return {
-            id: item.id,
-            employee: item.employee,
-            role: item.role,
-            basicPay: item.basicPay,
-            allowance: item.allowance,
-            deductions: item.deductions,
-            netPay
-        }
-    })
+const fetchComputedPayroll = async () => {
+    if (!runId) return
+    try {
+        const response = await axios.get(`/api/payroll-runs/${runId}/computed-payroll`)
+        computedRows.value = response.data?.data || []
+    } catch (error) {
+        console.error('Failed to load computed payroll', error)
+    }
+}
+
+onMounted(() => {
+    fetchComputedPayroll()
 })
 
 const recomputePayroll = () => {
@@ -117,14 +113,21 @@ const sendForApproval = () => {
         confirmButtonText: 'Yes, send'
     }).then((result) => {
         if (result.isConfirmed) {
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'success',
-                title: 'Sent to HR head',
-                showConfirmButton: false,
-                timer: 2000
-            })
+            axios.post(`/api/payroll-runs/${runId}/send-for-approval`)
+                .then(() => {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'success',
+                        title: 'Sent to HR head',
+                        showConfirmButton: false,
+                        timer: 2000
+                    })
+                    router.push({ name: 'payroll', query: { tab: 'pending' } })
+                })
+                .catch((error) => {
+                    console.error('Failed to send for approval', error)
+                })
         }
     })
 }

@@ -7,6 +7,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\PrebiddingController;
 use App\Http\Controllers\MobilizationController;
 use App\Http\Controllers\RecruitmentController;
+use App\Http\Controllers\PayrollRunController;
 
 /*
 |--------------------------------------------------------------------------
@@ -29,6 +30,26 @@ Route::post('/users', [UserController::class, 'store']);
 
 Route::get('/prebiddings', [PrebiddingController::class, 'index']); 
 Route::post('/prebiddings', [PrebiddingController::class, 'store']);
+
+Route::get('/payroll-runs', [PayrollRunController::class, 'index']);
+Route::post('/payroll-runs', [PayrollRunController::class, 'store']);
+Route::get('/payroll-runs/{payrollRun}', [PayrollRunController::class, 'show']);
+Route::get('/payroll-runs/{payrollRun}/attendance-summary', [PayrollRunController::class, 'attendanceSummary']);
+Route::get('/payroll-runs/{payrollRun}/allowances', [PayrollRunController::class, 'allowances']);
+Route::post('/payroll-runs/{payrollRun}/allowances', [PayrollRunController::class, 'storeAllowance']);
+Route::patch('/payroll-runs/{payrollRun}/allowances/{allowance}', [PayrollRunController::class, 'updateAllowance']);
+Route::delete('/payroll-runs/{payrollRun}/allowances/{allowance}', [PayrollRunController::class, 'deleteAllowance']);
+Route::get('/payroll-runs/{payrollRun}/deductions', [PayrollRunController::class, 'deductions']);
+Route::post('/payroll-runs/{payrollRun}/deductions', [PayrollRunController::class, 'storeDeduction']);
+Route::patch('/payroll-runs/{payrollRun}/deductions/{deduction}', [PayrollRunController::class, 'updateDeduction']);
+Route::delete('/payroll-runs/{payrollRun}/deductions/{deduction}', [PayrollRunController::class, 'deleteDeduction']);
+Route::get('/payroll-runs/{payrollRun}/statutory-compliance', [PayrollRunController::class, 'statutoryCompliance']);
+Route::get('/payroll-runs/{payrollRun}/computed-payroll', [PayrollRunController::class, 'computedPayroll']);
+Route::post('/payroll-runs/{payrollRun}/send-for-approval', [PayrollRunController::class, 'sendForApproval']);
+Route::post('/payroll-runs/{payrollRun}/approve', [PayrollRunController::class, 'approve']);
+Route::post('/payroll-runs/{payrollRun}/release-payslip', [PayrollRunController::class, 'releasePayslip']);
+Route::post('/payroll-runs/{payrollRun}/eligibilities', [PayrollRunController::class, 'updateEligibility']);
+Route::post('/payroll-runs/{payrollRun}/eligibilities/bulk', [PayrollRunController::class, 'bulkEligibility']);
 
 /*
 |--------------------------------------------------------------------------
