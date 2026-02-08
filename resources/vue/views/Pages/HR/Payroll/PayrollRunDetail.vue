@@ -45,7 +45,7 @@
                 <div class="border-b border-gray-200 bg-gray-50">
                     <div class="flex flex-wrap">
                         <button
-                            v-for="tab in tabs"
+                            v-for="tab in availableTabs"
                             :key="tab.key"
                             @click="activeTab = tab.key"
                             :class="[
@@ -245,15 +245,48 @@
                             </table>
                         </div>
                     </div>
+
+                    <div v-if="activeTab === 'computed'" class="space-y-4">
+                        <h2 class="text-lg font-semibold text-gray-900">Computed Payroll</h2>
+                        <div class="border border-gray-200 rounded-lg overflow-hidden">
+                            <table class="w-full">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Employee</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Basic Pay</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Allowance</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Deductions</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Net Pay</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <tr v-for="row in computedPayrollRows" :key="row.id" class="hover:bg-gray-50">
+                                        <td class="px-4 py-3 text-sm text-gray-900">
+                                            <p class="font-semibold">{{ row.employee }}</p>
+                                            <p class="text-xs text-gray-500">{{ row.role }}</p>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-700">₱{{ formatNumber(row.basicPay) }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-700">₱{{ formatNumber(row.allowance) }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-700">₱{{ formatNumber(row.deductions) }}</td>
+                                        <td class="px-4 py-3 text-sm font-semibold text-gray-900">₱{{ formatNumber(row.netPay) }}</td>
+                                    </tr>
+                                    <tr v-if="computedPayrollRows.length === 0">
+                                        <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-500">No computed payroll data.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div class="flex justify-end">
                 <button
-                    @click="goToComputedPayroll"
+                    v-if="!isPending"
+                    @click="handlePrimaryAction"
                     class="px-4 py-2 text-sm font-semibold text-white bg-[#0c8ce9] rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                    Compute Payroll
+                    {{ primaryActionLabel }}
                 </button>
             </div>
         </div>
@@ -409,6 +442,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AuthLayout from '@/views/Layouts/AuthLayout.vue'
+import Swal from 'sweetalert2'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -423,7 +457,8 @@ const tabs = [
     { key: 'attendance', label: 'Attendance Summary' },
     { key: 'allowances', label: 'Allowances' },
     { key: 'deductions', label: 'Deductions' },
-    { key: 'statutory', label: 'Statutory Compliance' }
+    { key: 'statutory', label: 'Statutory Compliance' },
+    { key: 'computed', label: 'Computed Payroll' }
 ]
 
 const activeTab = ref('attendance')
@@ -490,6 +525,33 @@ const closeAttendanceRecord = () => {
 
 const goToComputedPayroll = () => {
     router.push({ name: 'computed_payroll', params: { id: runId } })
+}
+
+const handlePrimaryAction = () => {
+    if (isApproved.value) {
+        Swal.fire({
+            title: 'Release payslip?',
+            text: 'This will release payslips for the approved payroll.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#0c8ce9',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, release'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: 'Payslips released',
+                    showConfirmButton: false,
+                    timer: 2000
+                })
+            }
+        })
+        return
+    }
+    goToComputedPayroll()
 }
 
 const newAllowance = ref({
@@ -617,6 +679,32 @@ const payrollRuns = [
 
 const run = computed(() => {
     return payrollRuns.find(item => item.id === runId) || payrollRuns[0]
+})
+
+const availableTabs = computed(() => {
+    if (run.value.status === 'Approved' || run.value.status === 'Pending') {
+        return tabs
+    }
+    return tabs.filter(tab => tab.key !== 'computed')
+})
+
+const isApproved = computed(() => run.value.status === 'Approved')
+const isPending = computed(() => run.value.status === 'Pending')
+
+const primaryActionLabel = computed(() => {
+    return isApproved.value ? 'Release Payslip' : 'Compute Payroll'
+})
+
+const computedPayrollRows = computed(() => {
+    const inputs = [
+        { id: 1, employee: 'John Davis', role: 'Project Manager', basicPay: 35000, allowance: 2000, deductions: 1500 },
+        { id: 2, employee: 'Sarah Anderson', role: 'Lead Engineer', basicPay: 28000, allowance: 1500, deductions: 1200 },
+        { id: 3, employee: 'Michael Chen', role: 'QA Lead', basicPay: 42000, allowance: 2500, deductions: 1800 }
+    ]
+    return inputs.map(item => ({
+        ...item,
+        netPay: item.basicPay + item.allowance - item.deductions
+    }))
 })
 
 const getStatusClasses = (status) => {

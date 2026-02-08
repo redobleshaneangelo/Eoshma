@@ -47,6 +47,7 @@
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Status</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Pay Date</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Description</th>
+                                    <th v-if="activeTab !== 'payroll_runs'" class="px-4 py-3 text-left text-xs font-semibold text-gray-700">Action</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -75,9 +76,17 @@
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ formatDate(run.payDate) }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ run.description }}</td>
+                                    <td v-if="activeTab !== 'payroll_runs'" class="px-4 py-3">
+                                        <button
+                                            @click="openPayrollRun(run)"
+                                            class="px-3 py-1 text-xs font-semibold text-white bg-[#0c8ce9] rounded hover:bg-blue-700"
+                                        >
+                                            {{ getActionLabel }}
+                                        </button>
+                                    </td>
                                 </tr>
                                 <tr v-if="filteredPayrollRuns.length === 0">
-                                    <td colspan="7" class="px-4 py-8 text-center text-sm text-gray-500">
+                                    <td :colspan="activeTab === 'payroll_runs' ? 7 : 8" class="px-4 py-8 text-center text-sm text-gray-500">
                                         No payroll runs available
                                     </td>
                                 </tr>
@@ -265,6 +274,13 @@ const filteredPayrollRuns = computed(() => {
     return payrollRuns.value
 })
 
+const getActionLabel = computed(() => {
+    if (activeTab.value === 'draft') return 'Open'
+    if (activeTab.value === 'pending') return 'View'
+    if (activeTab.value === 'approved') return 'View'
+    return 'Open'
+})
+
 const createPayrollRun = () => {
     if (!newPayrollRun.value.name) return
     const nextId = Math.max(0, ...payrollRuns.value.map(run => run.id)) + 1
@@ -272,6 +288,10 @@ const createPayrollRun = () => {
     payrollRuns.value.unshift(newRun)
     closeCreateModal()
     router.push({ name: 'payroll_run_detail', params: { id: nextId } })
+}
+
+const openPayrollRun = (run) => {
+    router.push({ name: 'payroll_run_detail', params: { id: run.id } })
 }
 
 const closeCreateModal = () => {
