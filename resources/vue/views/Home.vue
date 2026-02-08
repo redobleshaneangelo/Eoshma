@@ -7,7 +7,7 @@
             <div class="flex flex-col items-center justify-center h-full">
                 <div class="mb-10">
                     <h1 class="text-[#F2F2F2] text-[57px] font-bold text-center">
-                        Building Strong Foundations for Every Project
+                        Building Strong Foundations for Every Project Nigga
                     </h1>
                     <p class="text-[#F2F2F2] text-xl mt-3 text-center px-40 font-light">
                         EOSHMA General Construction and Supplies delivers reliable construction services and quality materials for residential, 
