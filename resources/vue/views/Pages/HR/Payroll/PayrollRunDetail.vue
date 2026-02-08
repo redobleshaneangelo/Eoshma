@@ -280,9 +280,8 @@
                 </div>
             </div>
 
-            <div class="flex justify-end">
+            <div class="flex justify-end" v-if="showPrimaryAction">
                 <button
-                    v-if="!isPending"
                     @click="handlePrimaryAction"
                     class="px-4 py-2 text-sm font-semibold text-white bg-[#0c8ce9] rounded-lg hover:bg-blue-700 transition-colors"
                 >
@@ -677,8 +676,24 @@ const payrollRuns = [
     }
 ]
 
+const queryRun = computed(() => {
+    const query = route.query
+    if (!query || !query.name) return null
+    return {
+        id: Number(route.params.id) || 0,
+        name: String(query.name || 'Draft Payroll Run'),
+        frequency: String(query.frequency || 'Weekly'),
+        startDate: String(query.startDate || ''),
+        endDate: String(query.endDate || ''),
+        group: String(query.group || 'fixed'),
+        status: String(query.status || 'Draft'),
+        payDate: String(query.payDate || ''),
+        description: String(query.description || 'Draft payroll run.')
+    }
+})
+
 const run = computed(() => {
-    return payrollRuns.find(item => item.id === runId) || payrollRuns[0]
+    return payrollRuns.find(item => item.id === runId) || queryRun.value || payrollRuns[0]
 })
 
 const availableTabs = computed(() => {
@@ -690,6 +705,7 @@ const availableTabs = computed(() => {
 
 const isApproved = computed(() => run.value.status === 'Approved')
 const isPending = computed(() => run.value.status === 'Pending')
+const showPrimaryAction = computed(() => !isPending.value)
 
 const primaryActionLabel = computed(() => {
     return isApproved.value ? 'Release Payslip' : 'Compute Payroll'

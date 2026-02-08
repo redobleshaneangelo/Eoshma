@@ -287,7 +287,20 @@ const createPayrollRun = () => {
     const newRun = { id: nextId, ...newPayrollRun.value }
     payrollRuns.value.unshift(newRun)
     closeCreateModal()
-    router.push({ name: 'payroll_run_detail', params: { id: nextId } })
+    router.push({
+        name: 'payroll_run_detail',
+        params: { id: nextId },
+        query: {
+            name: newRun.name,
+            frequency: newRun.frequency,
+            startDate: newRun.startDate,
+            endDate: newRun.endDate,
+            group: newRun.group,
+            status: newRun.status,
+            payDate: newRun.payDate,
+            description: newRun.description
+        }
+    })
 }
 
 const openPayrollRun = (run) => {
