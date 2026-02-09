@@ -91,24 +91,27 @@ class TimekeepingController extends Controller
 
         $statusCase = "CASE WHEN ea.time_in IS NULL AND ea.time_out IS NULL THEN 'awol' WHEN ea.time_in > '08:05:00' THEN 'late' ELSE 'present' END";
 
+        $nameExpression = "TRIM(CONCAT(users.last_name, ', ', users.first_name, IF(users.middle_name IS NULL OR users.middle_name = '', '', CONCAT(' ', LEFT(users.middle_name, 1), '.'))))";
+
         $baseQuery = EmployeeTest::query()
+            ->leftJoin('users', 'employees.user_id', '=', 'users.id')
             ->leftJoin('employee_attendances as ea', function ($join) use ($date) {
                 $join->on('employees.id', '=', 'ea.employee_id')
                     ->whereDate('ea.attendance_date', $date);
             })
             ->select(
                 'employees.id',
-                'employees.name',
+                DB::raw("{$nameExpression} as name"),
                 'employees.position',
                 'ea.time_in',
                 'ea.time_out',
                 DB::raw("{$statusCase} as status")
             )
-            ->orderBy('employees.name');
+            ->orderByRaw("{$nameExpression} asc");
 
         if ($search) {
-            $baseQuery->where(function ($q) use ($search) {
-                $q->where('employees.name', 'like', '%' . $search . '%')
+            $baseQuery->where(function ($q) use ($search, $nameExpression) {
+                $q->whereRaw("{$nameExpression} like ?", ['%' . $search . '%'])
                     ->orWhere('employees.id', 'like', '%' . $search . '%');
             });
         }

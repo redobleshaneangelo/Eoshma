@@ -6,7 +6,9 @@ use App\Models\EmployeeAttendance;
 use App\Models\EmployeeTest;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class AttendanceController extends Controller
 {
@@ -14,32 +16,35 @@ class AttendanceController extends Controller
     {
         $date = $request->query('date');
         $dateValue = $date ? Carbon::parse($date) : Carbon::today();
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
 
-        $statusCase = "CASE WHEN ea.time_in IS NULL AND ea.time_out IS NULL THEN 'absent' WHEN ea.time_out IS NOT NULL THEN 'clocked-out' ELSE 'time-in' END";
+        $employee = $this->getEmployeeForUser($user);
 
-        $rows = EmployeeTest::query()
-            ->leftJoin('employee_attendances as ea', function ($join) use ($dateValue) {
-                $join->on('employees.id', '=', 'ea.employee_id')
-                    ->whereDate('ea.attendance_date', $dateValue->toDateString());
+
+        $rows = EmployeeAttendance::query()
+            ->where('employee_id', $employee->id)
+            ->when($date, function ($query) use ($dateValue) {
+                $query->whereDate('attendance_date', $dateValue->toDateString());
             })
-            ->select(
-                'employees.id',
-                'employees.name',
-                'employees.position',
-                'ea.time_in',
-                'ea.time_out',
-                DB::raw("{$statusCase} as status")
-            )
-            ->orderBy('employees.name')
+            ->orderByDesc('attendance_date')
             ->get()
             ->map(function ($row) {
+                $dateValue = Carbon::parse($row->attendance_date);
+                $status = 'time-in';
+                if (!$row->time_in && !$row->time_out) {
+                    $status = 'absent';
+                } elseif ($row->time_out) {
+                    $status = 'clocked-out';
+                }
                 return [
-                    'id' => $row->id,
-                    'name' => $row->name,
-                    'position' => $row->position,
+                    'date' => $dateValue->toDateString(),
+                    'dayOfWeek' => $dateValue->format('l'),
                     'timeIn' => $row->time_in,
                     'timeOut' => $row->time_out,
-                    'status' => $row->status
+                    'status' => $status
                 ];
             });
 
@@ -47,16 +52,30 @@ class AttendanceController extends Controller
             'data' => $rows,
             'meta' => [
                 'date' => $dateValue->toDateString(),
-                'dayOfWeek' => $dateValue->format('l')
+                'dayOfWeek' => $dateValue->format('l'),
+                'employee' => [
+                    'id' => $employee->id,
+                    'name' => $employee->name,
+                    'position' => $employee->position
+                ]
             ]
         ]);
     }
 
-    public function updateRecord(Request $request, string $date, EmployeeTest $employee)
+    public function updateRecord(Request $request, string $date)
     {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $employee = $this->getEmployeeForUser($user);
         $validated = $request->validate([
             'time_in' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
-            'time_out' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/']
+            'time_out' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
+            'qr_payload' => ['nullable', 'string'],
+            'time_in_photo' => ['nullable', 'string'],
+            'time_out_photo' => ['nullable', 'string']
         ]);
 
         $timeIn = $validated['time_in'] ?? null;
@@ -83,14 +102,69 @@ class AttendanceController extends Controller
             ->orderByDesc('attendance_date')
             ->first();
 
+        $timeInPhotoPath = $this->saveBase64Image($validated['time_in_photo'] ?? null, 'time_in');
+        $timeOutPhotoPath = $this->saveBase64Image($validated['time_out_photo'] ?? null, 'time_out');
+
+        $updateData = [
+            'time_in' => $timeIn,
+            'time_out' => $timeOut,
+            'payroll_start' => $lastAttendance?->payroll_start?->toDateString() ?? $date,
+            'payroll_end' => $lastAttendance?->payroll_end?->toDateString() ?? $date,
+            'payroll_type' => $lastAttendance?->payroll_type ?? 'hour',
+            'payroll_frequency' => $lastAttendance?->payroll_frequency ?? 'Weekly'
+        ];
+
+        if (!empty($validated['qr_payload'])) {
+            $updateData['qr_payload'] = $validated['qr_payload'];
+        }
+        if ($timeInPhotoPath) {
+            $updateData['time_in_photo_path'] = $timeInPhotoPath;
+        }
+        if ($timeOutPhotoPath) {
+            $updateData['time_out_photo_path'] = $timeOutPhotoPath;
+        }
+
+        EmployeeAttendance::updateOrCreate(
+            [
+                'employee_id' => $employee->id,
+                'attendance_date' => $date
+            ],
+            $updateData
+        );
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    public function qrCode(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $employee = $this->getEmployeeForUser($user);
+        $date = $request->query('date')
+            ? Carbon::parse($request->query('date'))->toDateString()
+            : Carbon::today()->toDateString();
+
+        $payload = json_encode([
+            'type' => 'employee_attendance',
+            'employee_id' => $employee->id,
+            'date' => $date
+        ], JSON_UNESCAPED_SLASHES);
+
+        $lastAttendance = EmployeeAttendance::query()
+            ->where('employee_id', $employee->id)
+            ->orderByDesc('attendance_date')
+            ->first();
+
         EmployeeAttendance::updateOrCreate(
             [
                 'employee_id' => $employee->id,
                 'attendance_date' => $date
             ],
             [
-                'time_in' => $timeIn,
-                'time_out' => $timeOut,
+                'qr_payload' => $payload,
                 'payroll_start' => $lastAttendance?->payroll_start?->toDateString() ?? $date,
                 'payroll_end' => $lastAttendance?->payroll_end?->toDateString() ?? $date,
                 'payroll_type' => $lastAttendance?->payroll_type ?? 'hour',
@@ -98,6 +172,48 @@ class AttendanceController extends Controller
             ]
         );
 
-        return response()->json(['status' => 'ok']);
+        return response()->json([
+            'data' => [
+                'date' => $date,
+                'payload' => $payload
+            ]
+        ]);
+    }
+
+    private function getEmployeeForUser($user): EmployeeTest
+    {
+        return EmployeeTest::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'position' => 'Employee',
+                'rate' => 80
+            ]
+        );
+    }
+
+    private function saveBase64Image(?string $data, string $prefix): ?string
+    {
+        if (!$data) {
+            return null;
+        }
+
+        if (!preg_match('/^data:image\/(\w+);base64,/', $data, $matches)) {
+            return null;
+        }
+
+        $extension = strtolower($matches[1]);
+        $base64 = substr($data, strpos($data, ',') + 1);
+        $binary = base64_decode($base64, true);
+
+        if ($binary === false) {
+            return null;
+        }
+
+        $filename = sprintf('%s_%s_%s.%s', $prefix, now()->format('Ymd_His'), Str::random(8), $extension);
+        $path = 'attendance/' . $filename;
+
+        Storage::disk('public')->put($path, $binary);
+
+        return $path;
     }
 }

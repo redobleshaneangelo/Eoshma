@@ -2,7 +2,7 @@
     <auth-layout />
     <div class="ps-60 bg-[#F3F4F6] min-h-screen">
         <div class="w-full px-10 py-10">
-
+            <HRAttendance v-if="auth.department === 'HR'" />
         </div>
     </div>
 </template>
@@ -21,6 +21,8 @@
     ===================================================== */
     import { useAuthStore } from '@/stores/auth'
     import { useSearchStore } from '@/stores/searchStore'
+
+    import HRAttendance from '@/views/Pages/HR/Attendance/Attendance.vue'
 
     const auth = useAuthStore()
     const searchStore = useSearchStore()

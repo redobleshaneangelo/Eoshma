@@ -3,7 +3,7 @@
         <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
             <!-- Modal Header -->
             <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                <h2 class="text-xl font-bold text-[#333333]">Scan QR Code</h2>
+                <h2 class="text-xl font-bold text-[#333333]">Scan QR Code - {{ scanLabel }}</h2>
                 <button
                     @click="closeModal"
                     class="text-gray-500 hover:text-gray-700 transition-colors"
@@ -19,24 +19,23 @@
                 <!-- Scanner Section -->
                 <div class="mb-6">
                     <div class="bg-gray-100 rounded-lg p-4 mb-4">
-                        <div class="bg-black rounded-lg aspect-square flex items-center justify-center relative overflow-hidden">
-                            <!-- Camera Feed or Placeholder -->
-                            <video
-                                v-if="scannerActive"
-                                ref="videoElement"
-                                class="w-full h-full object-cover"
-                            ></video>
-                            <div v-else class="text-center text-white">
+                        <div class="bg-black rounded-lg w-80 h-60 mx-auto flex items-center justify-center relative overflow-hidden">
+                            <div
+                                v-show="scannerActive"
+                                id="qr-reader"
+                                class="w-full h-full rounded-lg overflow-hidden"
+                            ></div>
+                            <div v-if="!scannerActive" class="text-center text-white">
                                 <svg class="w-16 h-16 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
-                                <p class="text-sm opacity-75">Click "Start Scanner" to begin scanning</p>
+                                <p class="text-sm opacity-75">Waiting to start scanner...</p>
                             </div>
 
                             <!-- QR Code Overlay -->
                             <div v-if="scannerActive" class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div class="w-64 h-64 border-4 border-green-400 rounded-lg opacity-50"></div>
+                                <div :style="qrBoxStyle"></div>
                             </div>
                         </div>
                     </div>
@@ -62,6 +61,13 @@
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 000 2h4a1 1 0 100-2H8z" clip-rule="evenodd" />
                             </svg>
                             Stop Scanner
+                        </button>
+                        <button
+                            @click="simulateScan"
+                            :disabled="!scannerActive"
+                            class="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                        >
+                            Simulate Scan
                         </button>
                     </div>
 
@@ -103,28 +109,55 @@
                         </div>
                     </div>
 
-                    <!-- Time In / Time Out Actions -->
-                    <div v-if="scannedEmployee" class="flex gap-3">
+                    <div v-if="scannedEmployee" class="text-sm text-gray-600">
+                        {{ resultHint }}
+                    </div>
+
+                    <div v-if="scannedEmployee" class="mt-4">
                         <button
-                            @click="recordTimeIn"
-                            :disabled="scannedEmployee.timeIn && !scannedEmployee.timeOut"
-                            class="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-semibold text-sm hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                            v-if="!photoCaptureActive"
+                            @click="startPhotoCapture"
+                            class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-semibold hover:bg-gray-800 transition-colors"
                         >
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Time In
+                            Capture Photo Proof
                         </button>
-                        <button
-                            @click="recordTimeOut"
-                            :disabled="!scannedEmployee.timeIn || scannedEmployee.timeOut"
-                            class="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-semibold text-sm hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                        >
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l-2-2m0 0l-2-2m2 2l2-2m-2 2l-2 2m11-11a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Time Out
-                        </button>
+                        <p class="text-xs text-gray-500 mt-2">Required for {{ scanLabel.toLowerCase() }}.</p>
+
+                        <div v-if="photoCaptureActive" class="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                            <div class="bg-black rounded-lg overflow-hidden">
+                                <video ref="photoVideo" class="w-full h-80 object-cover" autoplay muted playsinline></video>
+                                <canvas ref="photoCanvas" class="hidden"></canvas>
+                            </div>
+                            <div class="flex gap-2 mt-3">
+                                <button
+                                    @click="capturePhoto"
+                                    class="flex-1 px-3 py-2 bg-[#0c8ce9] text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+                                >
+                                    Take Photo
+                                </button>
+                                <button
+                                    @click="cancelPhotoCapture"
+                                    class="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-100 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+
+                        <div v-if="capturedPhoto" class="mt-3">
+                            <p class="text-xs text-gray-600 mb-2">Captured photo preview</p>
+                            <img
+                                :src="capturedPhoto"
+                                alt="Captured photo"
+                                class="w-full max-h-80 object-contain rounded-lg border border-gray-200"
+                            />
+                            <button
+                                @click="retakePhoto"
+                                class="mt-3 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-100 transition-colors"
+                            >
+                                Retake Photo
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -174,70 +207,176 @@
 </template>
 
 <script setup>
-    import { ref, onMounted, onUnmounted } from 'vue'
+    import { ref, computed, onMounted, onUnmounted } from 'vue'
     import Swal from 'sweetalert2'
+    import { Html5Qrcode } from 'html5-qrcode'
 
     const props = defineProps({
         isOpen: Boolean,
-        employees: {
-            type: Array,
-            default: () => []
+        currentUser: {
+            type: Object,
+            default: () => ({})
+        },
+        todayRecord: {
+            type: Object,
+            default: null
+        },
+        scanMode: {
+            type: String,
+            default: 'in'
         }
     })
 
     const emit = defineEmits(['close', 'update-attendance'])
 
-    const videoElement = ref(null)
+    const qrScanner = ref(null)
     const scannerActive = ref(false)
     const scannedEmployee = ref(null)
     const scanHistory = ref([])
+    const photoVideo = ref(null)
+    const photoCanvas = ref(null)
+    const photoStream = ref(null)
+    const photoCaptureActive = ref(false)
+    const capturedPhoto = ref(null)
+    const pendingPhotoType = ref(null)
+    const lastQrPayload = ref(null)
+    const pendingAttendance = ref(null)
 
-    const getRandomEmployee = () => {
-        const list = props.employees || []
-        if (!list.length) return null
-        return list[Math.floor(Math.random() * list.length)]
+    const scanLabel = computed(() => (props.scanMode === 'out' ? 'Time Out' : 'Time In'))
+    const qrBoxSize = 240
+    const qrBoxStyle = computed(() => ({
+        width: `${qrBoxSize}px`,
+        height: `${qrBoxSize}px`,
+        border: '4px solid #22c55e',
+        borderRadius: '8px',
+        opacity: 0.5
+    }))
+    const resultHint = computed(() => `Recorded ${scanLabel.value.toLowerCase()} for today.`)
+
+    const getTodayDate = () => {
+        return new Date().toLocaleDateString('en-CA')
     }
 
-    const startScanner = () => {
+    const formatTime = (date) => {
+        return date.toTimeString().slice(0, 8)
+    }
+
+    const startScanner = async () => {
+        if (scannerActive.value) return
         scannerActive.value = true
-        // TODO: Integrate with actual QR scanning library (e.g., jsQR, html5-qrcode)
-        // For now, simulate scanning by detecting key press
-        setTimeout(() => {
-            simulateScan()
-        }, 1000)
+
+        if (!qrScanner.value) {
+            qrScanner.value = new Html5Qrcode('qr-reader')
+        }
+
+        try {
+            await qrScanner.value.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: qrBoxSize, height: qrBoxSize } },
+                (decodedText) => {
+                    handleScanSuccess(decodedText)
+                },
+                () => {}
+            )
+        } catch (error) {
+            scannerActive.value = false
+            Swal.fire({
+                icon: 'error',
+                title: 'Camera error',
+                text: 'Unable to start the camera scanner.',
+                confirmButtonColor: '#ef4444'
+            })
+        }
     }
 
-    const stopScanner = () => {
+    const stopScanner = async () => {
         scannerActive.value = false
-        if (videoElement.value && videoElement.value.srcObject) {
-            videoElement.value.srcObject.getTracks().forEach(track => track.stop())
+        if (qrScanner.value) {
+            try {
+                await qrScanner.value.stop()
+                await qrScanner.value.clear()
+            } catch (error) {
+                const message = error?.name || error?.message || ''
+                if (String(message).includes('AbortError')) {
+                    return
+                }
+            }
         }
     }
 
     const simulateScan = () => {
         if (!scannerActive.value) return
 
-        // Simulate random QR code scan
-        const employeeData = getRandomEmployee()
-        if (!employeeData) {
+        const employeeData = props.currentUser
+        if (!employeeData || !employeeData.name) {
             Swal.fire({
                 icon: 'info',
-                title: 'No employees',
-                text: 'No employee records available to scan.',
+                title: 'No user',
+                text: 'No user record available to scan.',
                 timer: 1500,
                 showConfirmButton: false
             })
             return
         }
 
-        // Find employee in list and merge with existing data
+        const payload = JSON.stringify({
+            type: 'employee_attendance',
+            employee_id: employeeData.id,
+            date: getTodayDate()
+        })
+
+        handleScanSuccess(payload)
+    }
+
+    const handleScanSuccess = (decodedText) => {
+        const employeeData = props.currentUser
+        if (!employeeData || !employeeData.name) {
+            return
+        }
+
+        let payload = null
+        try {
+            payload = JSON.parse(decodedText)
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Invalid QR',
+                text: 'QR payload is not valid JSON.',
+                confirmButtonColor: '#ef4444'
+            })
+            return
+        }
+
+        if (payload?.type !== 'employee_attendance') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Invalid QR',
+                text: 'QR code is not for attendance.',
+                confirmButtonColor: '#ef4444'
+            })
+            return
+        }
+
+        if (payload.employee_id && employeeData.employeeId && String(payload.employee_id) !== String(employeeData.employeeId)) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Mismatch',
+                text: 'This QR code does not belong to you.',
+                confirmButtonColor: '#ef4444'
+            })
+            return
+        }
+
+        lastQrPayload.value = decodedText
+
+        const record = props.todayRecord || {}
         scannedEmployee.value = {
-            id: employeeData.id,
+            id: employeeData.id || 'me',
             name: employeeData.name,
             department: '-',
             position: employeeData.position,
-            timeIn: employeeData.timeIn || null,
-            timeOut: employeeData.timeOut || null
+            timeIn: record.timeIn || null,
+            timeOut: record.timeOut || null
         }
 
         Swal.fire({
@@ -247,13 +386,19 @@
             timer: 1500,
             showConfirmButton: false
         })
+
+        if (props.scanMode === 'out') {
+            recordTimeOut()
+        } else {
+            recordTimeIn()
+        }
     }
 
     const recordTimeIn = () => {
         if (!scannedEmployee.value) return
 
         const now = new Date()
-        const timeInString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+        const timeInString = formatTime(now)
         
         scannedEmployee.value.timeIn = timeInString
 
@@ -272,34 +417,33 @@
             scanHistory.value.unshift(historyRecord)
         }
 
-        // Emit update to parent
-        emit('update-attendance', {
+        pendingAttendance.value = {
             employeeId: scannedEmployee.value.id,
+            mode: 'in',
+            date: getTodayDate(),
             timeIn: timeInString,
-            timeOut: null
-        })
+            timeOut: null,
+            qrPayload: lastQrPayload.value
+        }
+        pendingPhotoType.value = 'in'
 
         Swal.fire({
             icon: 'success',
             title: 'Time In Recorded',
-            text: `${scannedEmployee.value.name} - ${timeInString}`,
+            text: 'Please capture a photo proof to save.',
             timer: 1500,
             showConfirmButton: false
         })
 
         // Continue scanning
-        if (scannerActive.value) {
-            setTimeout(() => {
-                simulateScan()
-            }, 2000)
-        }
+        stopScanner()
     }
 
     const recordTimeOut = () => {
         if (!scannedEmployee.value) return
 
         const now = new Date()
-        const timeOutString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+        const timeOutString = formatTime(now)
         
         scannedEmployee.value.timeOut = timeOutString
 
@@ -307,42 +451,118 @@
         const historyIndex = scanHistory.value.findIndex(h => h.id === scannedEmployee.value.id)
         if (historyIndex >= 0) {
             scanHistory.value[historyIndex].timeOut = timeOutString
+        } else {
+            scanHistory.value.unshift({
+                id: scannedEmployee.value.id,
+                name: scannedEmployee.value.name,
+                timeIn: scannedEmployee.value.timeIn,
+                timeOut: timeOutString
+            })
         }
 
-        // Emit update to parent
-        emit('update-attendance', {
+        pendingAttendance.value = {
             employeeId: scannedEmployee.value.id,
+            mode: 'out',
+            date: getTodayDate(),
             timeIn: scannedEmployee.value.timeIn,
-            timeOut: timeOutString
-        })
+            timeOut: timeOutString,
+            qrPayload: lastQrPayload.value
+        }
+        pendingPhotoType.value = 'out'
 
         Swal.fire({
             icon: 'success',
             title: 'Time Out Recorded',
-            text: `${scannedEmployee.value.name} - ${timeOutString}`,
+            text: 'Please capture a photo proof to save.',
             timer: 1500,
             showConfirmButton: false
         })
 
         // Continue scanning
-        if (scannerActive.value) {
-            setTimeout(() => {
-                simulateScan()
-            }, 2000)
-        }
+        stopScanner()
     }
 
     const clearScanned = () => {
         scannedEmployee.value = null
     }
 
-    const closeModal = () => {
-        stopScanner()
+    const discardPendingAttendance = () => {
+        const pending = pendingAttendance.value
+        if (!pending) return
+
+        const historyIndex = scanHistory.value.findIndex(h => h.id === pending.employeeId)
+        if (pending.mode === 'in') {
+            if (historyIndex >= 0) {
+                scanHistory.value.splice(historyIndex, 1)
+            }
+            if (scannedEmployee.value && scannedEmployee.value.id === pending.employeeId) {
+                scannedEmployee.value.timeIn = null
+            }
+        }
+
+        if (pending.mode === 'out') {
+            if (historyIndex >= 0) {
+                scanHistory.value[historyIndex].timeOut = null
+            }
+            if (scannedEmployee.value && scannedEmployee.value.id === pending.employeeId) {
+                scannedEmployee.value.timeOut = null
+            }
+        }
+
+        pendingAttendance.value = null
+        pendingPhotoType.value = null
+        lastQrPayload.value = null
+        capturedPhoto.value = null
+    }
+
+    const closeModal = async () => {
+        if (pendingAttendance.value) {
+            const result = await Swal.fire({
+                icon: 'warning',
+                title: 'Discard pending attendance?',
+                text: 'This will cancel the scanned attendance without a photo proof.',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, discard',
+                cancelButtonText: 'No, keep',
+                confirmButtonColor: '#ef4444'
+            })
+
+            if (!result.isConfirmed) {
+                return
+            }
+
+            discardPendingAttendance()
+        }
+        await stopScanner()
+        if (qrScanner.value) {
+            try {
+                await qrScanner.value.clear()
+            } catch (error) {
+            }
+            qrScanner.value = null
+        }
         clearScanned()
         emit('close')
     }
 
-    const submitAndClose = () => {
+    const submitAndClose = async () => {
+        if (pendingAttendance.value) {
+            const result = await Swal.fire({
+                icon: 'warning',
+                title: 'Discard pending attendance?',
+                text: 'This will cancel the scanned attendance without a photo proof.',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, discard',
+                cancelButtonText: 'No, keep',
+                confirmButtonColor: '#ef4444'
+            })
+
+            if (!result.isConfirmed) {
+                return
+            }
+
+            discardPendingAttendance()
+        }
         if (scanHistory.value.length === 0) {
             Swal.fire('No Records', 'No attendance records were scanned', 'info')
             return
@@ -358,7 +578,157 @@
         })
     }
 
+    const startPhotoCapture = async () => {
+        if (pendingAttendance.value) {
+            pendingPhotoType.value = pendingAttendance.value.timeOut ? 'out' : 'in'
+        } else {
+            pendingPhotoType.value = props.scanMode
+        }
+
+        capturedPhoto.value = null
+
+        try {
+            await stopScanner()
+            let stream = null
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: 'environment' } },
+                    audio: false
+                })
+            } catch (error) {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: 'user' } },
+                    audio: false
+                })
+            }
+            photoStream.value = stream
+            photoCaptureActive.value = true
+            if (photoVideo.value) {
+                photoVideo.value.srcObject = stream
+                photoVideo.value.onloadedmetadata = () => {
+                    const playResult = photoVideo.value.play()
+                    if (playResult && typeof playResult.catch === 'function') {
+                        playResult.catch(() => {})
+                    }
+                }
+            }
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Camera error',
+                text: 'Unable to access the camera for photo proof.',
+                confirmButtonColor: '#ef4444'
+            })
+        }
+    }
+
+    const stopPhotoCapture = () => {
+        if (photoStream.value) {
+            photoStream.value.getTracks().forEach(track => track.stop())
+            photoStream.value = null
+        }
+        photoCaptureActive.value = false
+    }
+
+    const cancelPhotoCapture = () => {
+        stopPhotoCapture()
+    }
+
+    const retakePhoto = () => {
+        capturedPhoto.value = null
+        startPhotoCapture()
+    }
+
+    const capturePhoto = () => {
+        if (!photoVideo.value || !photoCanvas.value || !scannedEmployee.value) {
+            return
+        }
+
+        const video = photoVideo.value
+        const canvas = photoCanvas.value
+        const width = video.videoWidth || 640
+        const height = video.videoHeight || 480
+        canvas.width = width
+        canvas.height = height
+
+        const context = canvas.getContext('2d')
+        if (!context) {
+            return
+        }
+
+        context.drawImage(video, 0, 0, width, height)
+        const base64 = canvas.toDataURL('image/jpeg', 0.9)
+        capturedPhoto.value = base64
+
+        const payload = pendingAttendance.value || {
+            date: getTodayDate(),
+            timeIn: scannedEmployee.value.timeIn,
+            timeOut: scannedEmployee.value.timeOut,
+            qrPayload: lastQrPayload.value
+        }
+
+        emit('update-attendance', {
+            date: payload.date,
+            timeIn: payload.timeIn,
+            timeOut: payload.timeOut,
+            timeInPhoto: pendingPhotoType.value === 'in' ? base64 : null,
+            timeOutPhoto: pendingPhotoType.value === 'out' ? base64 : null,
+            qrPayload: payload.qrPayload
+        })
+
+        pendingAttendance.value = null
+        stopPhotoCapture()
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Photo saved',
+            text: 'Photo proof captured successfully.',
+            timer: 1500,
+            showConfirmButton: false
+        })
+    }
+
     onUnmounted(() => {
         stopScanner()
+        stopPhotoCapture()
+        qrScanner.value = null
     })
+
 </script>
+
+<style scoped>
+#qr-reader {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: #000;
+    object-fit: cover;
+}
+
+#qr-reader video,
+#qr-reader canvas {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 0.5rem;
+    object-fit: cover;
+    overflow: hidden;
+}
+
+#qr-reader__scan_region {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+#qr-reader__dashboard {
+    display: none !important;
+}
+
+#qr-reader .qr-code-outline,
+#qr-reader .qr-shaded-region,
+#qr-reader__scan_region svg {
+    display: none !important;
+}
+</style>
