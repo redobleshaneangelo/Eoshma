@@ -20,7 +20,7 @@ import Register from '@/views/Register.vue'
 |--------------------------------------------------------------------------
 */
 import Dashboard from '@/views/Pages/Dashboard.vue'
-import Attendace from '@/views/Pages/Attendance.vue'
+import Attendace from '@/views/Pages/HR/Attendance/Attendance.vue'
 import Communications from '@/views/Pages/Communications.vue'
 import PendingApproval from '@/views/Pages/PendingApprovals.vue'
 import PendingRequests from '@/views/Pages/PendingRequests.vue'

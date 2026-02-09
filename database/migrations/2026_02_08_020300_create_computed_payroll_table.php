@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('computed_payroll', function (Blueprint $table) {
             $table->id();
             $table->foreignId('payroll_run_id')->constrained('payroll_runs')->cascadeOnDelete();
-            $table->foreignId('employee_test_id')->constrained('employees_test')->cascadeOnDelete();
+            $table->foreignId('employee_id')->constrained('employees')->cascadeOnDelete();
             $table->decimal('basic_pay', 12, 2)->default(0);
             $table->decimal('allowance_total', 12, 2)->default(0);
             $table->decimal('deduction_total', 12, 2)->default(0);

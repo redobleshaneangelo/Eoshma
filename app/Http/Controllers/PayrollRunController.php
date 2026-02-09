@@ -61,9 +61,9 @@ class PayrollRunController extends Controller
         $rows = $this->attendanceRows($payrollRun);
         $eligibility = PayrollRunEligibility::query()
             ->where('payroll_run_id', $payrollRun->id)
-            ->pluck('is_eligible', 'employee_test_id');
+            ->pluck('is_eligible', 'employee_id');
 
-        $grouped = $rows->groupBy('employee_test_id')->map(function ($items) use ($payrollRun) {
+        $grouped = $rows->groupBy('employee_id')->map(function ($items) use ($payrollRun) {
             $employee = $items->first()->employee;
                 $totalMinutes = $this->totalMinutes($items);
 
@@ -105,7 +105,7 @@ class PayrollRunController extends Controller
             ->map(function ($item) {
                 return [
                     'id' => $item->id,
-                    'employeeId' => $item->employee_test_id,
+                    'employeeId' => $item->employee_id,
                     'employeeName' => $item->employee?->name,
                     'type' => $item->type,
                     'amount' => (float) $item->amount,
@@ -119,7 +119,7 @@ class PayrollRunController extends Controller
     public function storeAllowance(Request $request, PayrollRun $payrollRun)
     {
         $validated = $request->validate([
-            'employee_test_id' => ['required', 'exists:employees_test,id'],
+            'employee_id' => ['required', 'exists:employees,id'],
             'type' => ['required', 'string', 'max:255'],
             'amount' => ['required', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:255']
@@ -131,7 +131,7 @@ class PayrollRunController extends Controller
         return response()->json([
             'data' => [
                 'id' => $allowance->id,
-                'employeeId' => $allowance->employee_test_id,
+                'employeeId' => $allowance->employee_id,
                 'employeeName' => $allowance->employee?->name,
                 'type' => $allowance->type,
                 'amount' => (float) $allowance->amount,
@@ -157,7 +157,7 @@ class PayrollRunController extends Controller
         return response()->json([
             'data' => [
                 'id' => $allowance->id,
-                'employeeId' => $allowance->employee_test_id,
+                'employeeId' => $allowance->employee_id,
                 'employeeName' => $allowance->employee?->name,
                 'type' => $allowance->type,
                 'amount' => (float) $allowance->amount,
@@ -187,7 +187,7 @@ class PayrollRunController extends Controller
             ->map(function ($item) {
                 return [
                     'id' => $item->id,
-                    'employeeId' => $item->employee_test_id,
+                    'employeeId' => $item->employee_id,
                     'employeeName' => $item->employee?->name,
                     'type' => $item->type,
                     'amount' => (float) $item->amount,
@@ -201,7 +201,7 @@ class PayrollRunController extends Controller
     public function storeDeduction(Request $request, PayrollRun $payrollRun)
     {
         $validated = $request->validate([
-            'employee_test_id' => ['required', 'exists:employees_test,id'],
+            'employee_id' => ['required', 'exists:employees,id'],
             'type' => ['required', 'string', 'max:255'],
             'amount' => ['required', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:255']
@@ -213,7 +213,7 @@ class PayrollRunController extends Controller
         return response()->json([
             'data' => [
                 'id' => $deduction->id,
-                'employeeId' => $deduction->employee_test_id,
+                'employeeId' => $deduction->employee_id,
                 'employeeName' => $deduction->employee?->name,
                 'type' => $deduction->type,
                 'amount' => (float) $deduction->amount,
@@ -239,7 +239,7 @@ class PayrollRunController extends Controller
         return response()->json([
             'data' => [
                 'id' => $deduction->id,
-                'employeeId' => $deduction->employee_test_id,
+                'employeeId' => $deduction->employee_id,
                 'employeeName' => $deduction->employee?->name,
                 'type' => $deduction->type,
                 'amount' => (float) $deduction->amount,
@@ -325,21 +325,21 @@ class PayrollRunController extends Controller
     public function updateEligibility(Request $request, PayrollRun $payrollRun)
     {
         $validated = $request->validate([
-            'employee_test_id' => ['required', 'exists:employees_test,id'],
+            'employee_id' => ['required', 'exists:employees,id'],
             'is_eligible' => ['required', 'boolean']
         ]);
 
         $eligibility = PayrollRunEligibility::updateOrCreate(
             [
                 'payroll_run_id' => $payrollRun->id,
-                'employee_test_id' => $validated['employee_test_id']
+                'employee_id' => $validated['employee_id']
             ],
             ['is_eligible' => $validated['is_eligible']]
         );
 
         return response()->json([
             'data' => [
-                'employeeId' => $eligibility->employee_test_id,
+                'employeeId' => $eligibility->employee_id,
                 'isEligible' => (bool) $eligibility->is_eligible
             ]
         ]);
@@ -348,16 +348,16 @@ class PayrollRunController extends Controller
     public function bulkEligibility(Request $request, PayrollRun $payrollRun)
     {
         $validated = $request->validate([
-            'employee_test_ids' => ['required', 'array'],
-            'employee_test_ids.*' => ['integer', 'exists:employees_test,id'],
+            'employee_ids' => ['required', 'array'],
+            'employee_ids.*' => ['integer', 'exists:employees,id'],
             'is_eligible' => ['required', 'boolean']
         ]);
 
-        foreach ($validated['employee_test_ids'] as $employeeId) {
+        foreach ($validated['employee_ids'] as $employeeId) {
             PayrollRunEligibility::updateOrCreate(
                 [
                     'payroll_run_id' => $payrollRun->id,
-                    'employee_test_id' => $employeeId
+                    'employee_id' => $employeeId
                 ],
                 ['is_eligible' => $validated['is_eligible']]
             );
@@ -396,11 +396,11 @@ class PayrollRunController extends Controller
     private function buildComputedRows(PayrollRun $payrollRun): array
     {
         $rows = $this->attendanceRows($payrollRun);
-        $grouped = $rows->toBase()->groupBy('employee_test_id');
+        $grouped = $rows->toBase()->groupBy('employee_id');
         $eligibleIds = PayrollRunEligibility::query()
             ->where('payroll_run_id', $payrollRun->id)
             ->where('is_eligible', true)
-            ->pluck('employee_test_id')
+            ->pluck('employee_id')
             ->map(fn ($id) => (int) $id)
             ->all();
 
@@ -411,12 +411,12 @@ class PayrollRunController extends Controller
         $allowances = Allowance::query()
             ->where('payroll_run_id', $payrollRun->id)
             ->get()
-            ->groupBy('employee_test_id');
+            ->groupBy('employee_id');
 
         $deductions = Deduction::query()
             ->where('payroll_run_id', $payrollRun->id)
             ->get()
-            ->groupBy('employee_test_id');
+            ->groupBy('employee_id');
 
         $periodsPerYear = $this->periodsPerYear($payrollRun->frequency);
         $totalGross = 0;

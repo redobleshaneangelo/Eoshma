@@ -11,11 +11,11 @@ return new class extends Migration
         Schema::create('payroll_run_eligibilities', function (Blueprint $table) {
             $table->id();
             $table->foreignId('payroll_run_id')->constrained('payroll_runs')->cascadeOnDelete();
-            $table->foreignId('employee_test_id')->constrained('employees_test')->cascadeOnDelete();
+            $table->foreignId('employee_id')->constrained('employees')->cascadeOnDelete();
             $table->boolean('is_eligible')->default(false);
             $table->timestamps();
 
-            $table->unique(['payroll_run_id', 'employee_test_id']);
+            $table->unique(['payroll_run_id', 'employee_id']);
         });
     }
 

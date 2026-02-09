@@ -10,7 +10,7 @@ class EmployeeAttendance extends Model
     use HasFactory;
 
     protected $fillable = [
-        'employee_test_id',
+        'employee_id',
         'attendance_date',
         'time_in',
         'time_out',
@@ -31,6 +31,6 @@ class EmployeeAttendance extends Model
 
     public function employee()
     {
-        return $this->belongsTo(EmployeeTest::class, 'employee_test_id');
+        return $this->belongsTo(EmployeeTest::class, 'employee_id');
     }
 }

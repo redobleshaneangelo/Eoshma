@@ -9,7 +9,7 @@ class EmployeeTest extends Model
 {
     use HasFactory;
 
-    protected $table = 'employees_test';
+    protected $table = 'employees';
 
     protected $fillable = [
         'name',
@@ -26,6 +26,6 @@ class EmployeeTest extends Model
 
     public function attendances()
     {
-        return $this->hasMany(EmployeeAttendance::class, 'employee_test_id');
+        return $this->hasMany(EmployeeAttendance::class, 'employee_id');
     }
 }
