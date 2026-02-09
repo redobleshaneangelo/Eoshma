@@ -1,56 +1,67 @@
 <template>
     <div class="space-y-6">
-        <!-- Page Header with Scan Button -->
         <div class="flex items-center justify-between">
-            <button
-                @click="openQRScanner"
-                class="ms-auto px-6 py-2.5 bg-[#0c8ce9] text-white rounded-lg font-semibold text-sm hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                Scan QR Code
-            </button>
+            <div>
+                <p class="text-sm font-semibold text-gray-600">My Attendance</p>
+                <p class="text-xs text-gray-500">Records for {{ userLabel }}</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button
+                    @click="openQRScanner('in')"
+                    class="px-5 py-2.5 bg-green-600 text-white rounded-lg font-semibold text-sm hover:bg-green-700 transition-colors flex items-center gap-2"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Time In
+                </button>
+                <button
+                    @click="openQRScanner('out')"
+                    class="px-5 py-2.5 bg-red-600 text-white rounded-lg font-semibold text-sm hover:bg-red-700 transition-colors flex items-center gap-2"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l-2-2m0 0l-2-2m2 2l2-2m-2 2l-2 2m11-11a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Time Out
+                </button>
+            </div>
         </div>
 
-        <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
-                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Total Employees</p>
-                <p class="text-3xl font-bold text-[#333333]">{{ employees.length }}</p>
-                <p class="text-xs text-gray-500 mt-2">Scanned Today</p>
+                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Total Days</p>
+                <p class="text-3xl font-bold text-[#333333]">{{ records.length }}</p>
+                <p class="text-xs text-gray-500 mt-2">Logged Records</p>
             </div>
 
             <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
-                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Present</p>
-                <p class="text-3xl font-bold text-green-600">{{ presentCount }}</p>
-                <p class="text-xs text-gray-500 mt-2">Time In Recorded</p>
-            </div>
-
-            <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
-                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Not Yet Scanned</p>
-                <p class="text-3xl font-bold text-orange-600">{{ notScannedCount }}</p>
-                <p class="text-xs text-gray-500 mt-2">Pending</p>
+                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Time In Only</p>
+                <p class="text-3xl font-bold text-blue-600">{{ timeInOnlyCount }}</p>
+                <p class="text-xs text-gray-500 mt-2">Needs Time Out</p>
             </div>
 
             <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
                 <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Clocked Out</p>
-                <p class="text-3xl font-bold text-blue-600">{{ clockedOutCount }}</p>
-                <p class="text-xs text-gray-500 mt-2">Time Out Recorded</p>
+                <p class="text-3xl font-bold text-green-600">{{ clockedOutCount }}</p>
+                <p class="text-xs text-gray-500 mt-2">Complete</p>
+            </div>
+
+            <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Absent</p>
+                <p class="text-3xl font-bold text-red-600">{{ absentCount }}</p>
+                <p class="text-xs text-gray-500 mt-2">No Time In/Out</p>
             </div>
         </div>
 
-        <!-- Filters and Search -->
         <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <!-- Search by Name/ID -->
                 <div class="md:col-span-2">
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Search by Name or ID</label>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Search by Date or Day</label>
                     <div class="relative">
                         <input
                             v-model="searchQuery"
                             type="text"
-                            placeholder="Search employees..."
+                            placeholder="Search attendance..."
                             class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0c8ce9]"
                         />
                         <svg
@@ -69,7 +80,6 @@
                     </div>
                 </div>
 
-                <!-- Date Filter -->
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Date</label>
                     <input
@@ -79,7 +89,6 @@
                     />
                 </div>
 
-                <!-- Status Filter -->
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Status</label>
                     <select
@@ -89,12 +98,11 @@
                         <option value="">All Status</option>
                         <option value="time-in">Time In Only</option>
                         <option value="clocked-out">Clocked Out</option>
-                        <option value="absent">Not Scanned</option>
+                        <option value="absent">Absent</option>
                     </select>
                 </div>
             </div>
 
-            <!-- Clear Filters -->
             <div v-if="hasActiveFilters" class="mt-3 pt-3 border-t border-gray-200">
                 <button
                     @click="clearFilters"
@@ -105,13 +113,11 @@
             </div>
         </div>
 
-        <!-- Employee Table -->
         <div class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-            <!-- Table Header with Pagination -->
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
                 <h3 class="text-sm font-semibold text-gray-700">
-                    Employees
-                    <span class="text-gray-500">{{ filteredEmployees.length }} records</span>
+                    Attendance Records
+                    <span class="text-gray-500">{{ filteredRecords.length }} records</span>
                 </h3>
                 <div class="flex items-center gap-3">
                     <select
@@ -125,40 +131,18 @@
                 </div>
             </div>
 
-            <!-- Scrollable Table -->
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead class="bg-gray-50 border-b border-gray-200 sticky top-0">
                         <tr>
                             <th class="px-6 py-3 text-left">
                                 <button
-                                    @click="toggleSort('id')"
+                                    @click="toggleSort('date')"
                                     class="text-xs font-semibold text-gray-700 uppercase tracking-wide hover:text-[#0c8ce9] transition-colors flex items-center gap-1"
                                 >
-                                    Employee ID
+                                    Date
                                     <svg
-                                        v-if="sortField === 'id'"
-                                        class="w-3 h-3"
-                                        :class="sortDirection === 'asc' ? 'rotate-180' : ''"
-                                        fill="currentColor"
-                                        viewBox="0 0 20 20"
-                                    >
-                                        <path
-                                            fill-rule="evenodd"
-                                            d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z"
-                                            clip-rule="evenodd"
-                                        />
-                                    </svg>
-                                </button>
-                            </th>
-                            <th class="px-6 py-3 text-left">
-                                <button
-                                    @click="toggleSort('name')"
-                                    class="text-xs font-semibold text-gray-700 uppercase tracking-wide hover:text-[#0c8ce9] transition-colors flex items-center gap-1"
-                                >
-                                    Full Name
-                                    <svg
-                                        v-if="sortField === 'name'"
+                                        v-if="sortField === 'date'"
                                         class="w-3 h-3"
                                         :class="sortDirection === 'asc' ? 'rotate-180' : ''"
                                         fill="currentColor"
@@ -173,7 +157,7 @@
                                 </button>
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                                Position
+                                Day
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
                                 Time In
@@ -191,42 +175,41 @@
                     </thead>
                     <tbody>
                         <tr
-                            v-for="employee in paginatedEmployees"
-                            :key="employee.id"
+                            v-for="record in paginatedRecords"
+                            :key="record.date"
                             class="border-b border-gray-200 hover:bg-gray-50 transition-colors"
                         >
-                            <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ employee.id }}</td>
-                            <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ employee.name }}</td>
-                            <td class="px-6 py-4 text-sm text-gray-700">{{ employee.position }}</td>
+                            <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ record.date }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">{{ record.dayOfWeek }}</td>
                             <td class="px-6 py-4 text-sm font-semibold">
                                 <span
-                                    v-if="employee.timeIn"
+                                    v-if="record.timeIn"
                                     class="inline-block px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold"
                                 >
-                                    {{ employee.timeIn }}
+                                    {{ record.timeIn }}
                                 </span>
                                 <span v-else class="text-gray-400 text-xs">—</span>
                             </td>
                             <td class="px-6 py-4 text-sm font-semibold">
                                 <span
-                                    v-if="employee.timeOut"
+                                    v-if="record.timeOut"
                                     class="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold"
                                 >
-                                    {{ employee.timeOut }}
+                                    {{ record.timeOut }}
                                 </span>
                                 <span v-else class="text-gray-400 text-xs">—</span>
                             </td>
                             <td class="px-6 py-4 text-sm">
                                 <span
-                                    :class="getStatusBadgeClass(employee.status)"
+                                    :class="getStatusBadgeClass(record.status)"
                                     class="inline-block px-3 py-1 rounded-full text-xs font-semibold"
                                 >
-                                    {{ formatStatus(employee.status) }}
+                                    {{ formatStatus(record.status) }}
                                 </span>
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <button
-                                    @click="editEmployee(employee)"
+                                    @click="editRecord(record)"
                                     class="text-[#0c8ce9] hover:text-blue-700 font-semibold text-sm transition-colors"
                                 >
                                     Edit
@@ -236,9 +219,8 @@
                     </tbody>
                 </table>
 
-                <!-- Empty State -->
                 <div
-                    v-if="filteredEmployees.length === 0"
+                    v-if="filteredRecords.length === 0"
                     class="flex flex-col items-center justify-center py-16 px-6"
                 >
                     <svg
@@ -251,20 +233,20 @@
                             stroke-linecap="round"
                             stroke-linejoin="round"
                             stroke-width="2"
-                            d="M17 20h5v-2a3 3 0 00-5.856-1.487M15 10a3 3 0 11-6 0 3 3 0 016 0z"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                     </svg>
-                    <p class="text-gray-600 font-semibold">No employees found</p>
-                    <p class="text-gray-400 text-sm mt-1">Try adjusting your filters or search</p>
+                    <p class="text-gray-600 font-semibold">No attendance records found</p>
+                    <p class="text-gray-400 text-sm mt-1">Try adjusting your filters</p>
                 </div>
             </div>
 
             <!-- Pagination -->
-            <div v-if="filteredEmployees.length > 0" class="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
+            <div v-if="filteredRecords.length > 0" class="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
                 <div class="text-sm text-gray-600">
                     Showing {{ (currentPage - 1) * pageSize + 1 }} to
-                    {{ Math.min(currentPage * pageSize, filteredEmployees.length) }} of
-                    {{ filteredEmployees.length }}
+                    {{ Math.min(currentPage * pageSize, filteredRecords.length) }} of
+                    {{ filteredRecords.length }}
                 </div>
                 <div class="flex items-center gap-2">
                     <button
@@ -299,7 +281,9 @@
         <!-- QR Scanner Modal -->
         <QRScannerModal
             :isOpen="showQRScanner"
-            :employees="filteredEmployees"
+            :currentUser="currentUser"
+            :todayRecord="todayRecord"
+            :scanMode="scanMode"
             @close="closeQRScanner"
             @update-attendance="handleAttendanceUpdate"
         />
@@ -311,32 +295,54 @@
     import axios from 'axios'
     import Swal from 'sweetalert2'
     import QRScannerModal from './QRScannerModal.vue'
+    import { useAuthStore } from '@/stores/auth'
 
-    const employees = ref([])
+    const auth = useAuthStore()
+    const records = ref([])
     const searchQuery = ref('')
     const selectedStatus = ref('')
-    const selectedDate = ref(new Date().toISOString().split('T')[0])
-    const sortField = ref('name')
-    const sortDirection = ref('asc')
+    const selectedDate = ref('')
+    const sortField = ref('date')
+    const sortDirection = ref('desc')
     const currentPage = ref(1)
     const pageSize = ref(10)
     const showQRScanner = ref(false)
+    const scanMode = ref('in')
 
-    const filteredEmployees = computed(() => {
-        let filtered = employees.value.filter(emp => {
+    const userLabel = computed(() => {
+        const user = auth.user
+        if (!user) return 'Unknown User'
+        const last = user.last_name || ''
+        const first = user.first_name || ''
+        const middle = user.middle_name ? `${user.middle_name.charAt(0)}.` : ''
+        return `${last}, ${first} ${middle}`.trim()
+    })
+
+    const currentUser = computed(() => {
+        const user = auth.user
+        return {
+            name: userLabel.value,
+            id: user?.id || null,
+            position: user?.role || 'Employee'
+        }
+    })
+
+    const filteredRecords = computed(() => {
+        let filtered = records.value.filter(record => {
+            const search = searchQuery.value.toLowerCase()
             const matchSearch =
-                emp.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-                String(emp.id).toLowerCase().includes(searchQuery.value.toLowerCase())
+                record.date.toLowerCase().includes(search) ||
+                record.dayOfWeek.toLowerCase().includes(search)
 
-            const matchStatus = !selectedStatus.value || emp.status === selectedStatus.value
+            const matchStatus = !selectedStatus.value || record.status === selectedStatus.value
+            const matchDate = !selectedDate.value || record.date === selectedDate.value
 
-            return matchSearch && matchStatus
+            return matchSearch && matchStatus && matchDate
         })
 
-        // Sort
         filtered.sort((a, b) => {
-            let aVal = a[sortField.value]
-            let bVal = b[sortField.value]
+            const aVal = a[sortField.value]
+            const bVal = b[sortField.value]
 
             if (aVal < bVal) return sortDirection.value === 'asc' ? -1 : 1
             if (aVal > bVal) return sortDirection.value === 'asc' ? 1 : -1
@@ -346,16 +352,16 @@
         return filtered
     })
 
-    const presentCount = computed(() => {
-        return employees.value.filter(emp => emp.timeIn !== null).length
+    const timeInOnlyCount = computed(() => {
+        return records.value.filter(record => record.status === 'time-in').length
     })
 
-    const notScannedCount = computed(() => {
-        return employees.value.filter(emp => emp.status === 'absent').length
+    const absentCount = computed(() => {
+        return records.value.filter(record => record.status === 'absent').length
     })
 
     const clockedOutCount = computed(() => {
-        return employees.value.filter(emp => emp.timeOut !== null).length
+        return records.value.filter(record => record.status === 'clocked-out').length
     })
 
     const hasActiveFilters = computed(() => {
@@ -363,13 +369,13 @@
     })
 
     const totalPages = computed(() => {
-        return Math.ceil(filteredEmployees.value.length / pageSize.value)
+        return Math.ceil(filteredRecords.value.length / pageSize.value)
     })
 
-    const paginatedEmployees = computed(() => {
+    const paginatedRecords = computed(() => {
         const start = (currentPage.value - 1) * pageSize.value
         const end = start + pageSize.value
-        return filteredEmployees.value.slice(start, end)
+        return filteredRecords.value.slice(start, end)
     })
 
     const visiblePages = computed(() => {
@@ -397,7 +403,8 @@
         }
     }
 
-    const openQRScanner = () => {
+    const openQRScanner = (mode) => {
+        scanMode.value = mode
         showQRScanner.value = true
     }
 
@@ -406,7 +413,7 @@
     }
 
     const handleAttendanceUpdate = (data) => {
-        updateAttendance(data.employeeId, data.timeIn || null, data.timeOut || null)
+        updateAttendance(data.date, data.timeIn || null, data.timeOut || null)
     }
 
     const getStatusBadgeClass = (status) => {
@@ -432,19 +439,20 @@
     const clearFilters = () => {
         searchQuery.value = ''
         selectedStatus.value = ''
+        selectedDate.value = ''
         currentPage.value = 1
     }
 
-    const editEmployee = (employee) => {
+    const editRecord = (record) => {
         Swal.fire({
-            title: `Edit Attendance - ${employee.name}`,
+            title: `Edit Attendance - ${record.date}`,
             html: `
                 <div style="text-align: left;">
                     <label style="display: block; margin: 12px 0 6px 0; font-weight: 600; font-size: 14px;">Time In</label>
-                    <input id="timeIn" type="time" value="${employee.timeIn || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    <input id="timeIn" type="time" value="${record.timeIn || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
                     
                     <label style="display: block; margin: 12px 0 6px 0; font-weight: 600; font-size: 14px;">Time Out</label>
-                    <input id="timeOut" type="time" value="${employee.timeOut || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    <input id="timeOut" type="time" value="${record.timeOut || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
                 </div>
             `,
             confirmButtonText: 'Save',
@@ -457,7 +465,7 @@
             }
         }).then((result) => {
             if (result.isConfirmed) {
-                updateAttendance(employee.id, result.value.timeIn || null, result.value.timeOut || null)
+                updateAttendance(record.date, result.value.timeIn || null, result.value.timeOut || null)
             }
         })
     }
@@ -478,25 +486,25 @@
         currentPage.value = page
     }
 
-    const fetchEmployees = async () => {
+    const fetchRecords = async () => {
         try {
             const response = await axios.get('/api/attendance/records', {
-                params: { date: selectedDate.value }
+                params: selectedDate.value ? { date: selectedDate.value } : {}
             })
-            employees.value = response.data?.data || []
+            records.value = response.data?.data || []
             currentPage.value = 1
         } catch (error) {
             console.error('Failed to load attendance records', error)
         }
     }
 
-    const updateAttendance = async (employeeId, timeIn, timeOut) => {
+    const updateAttendance = async (date, timeIn, timeOut) => {
         try {
-            await axios.patch(`/api/attendance/records/${selectedDate.value}/employees/${employeeId}`, {
+            await axios.patch(`/api/attendance/records/${date}`, {
                 time_in: timeIn,
                 time_out: timeOut
             })
-            await fetchEmployees()
+            await fetchRecords()
             Swal.fire({
                 toast: true,
                 position: 'top-end',
@@ -516,11 +524,16 @@
         }
     }
 
+    const todayRecord = computed(() => {
+        const today = new Date().toISOString().split('T')[0]
+        return records.value.find(record => record.date === today) || null
+    })
+
     onMounted(() => {
-        fetchEmployees()
+        fetchRecords()
     })
 
     watch([selectedDate], () => {
-        fetchEmployees()
+        fetchRecords()
     })
 </script>

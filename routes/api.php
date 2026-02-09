@@ -57,8 +57,6 @@ Route::get('/timekeeping/days', [TimekeepingController::class, 'days']);
 Route::get('/timekeeping/days/{date}', [TimekeepingController::class, 'dayDetail']);
 Route::patch('/timekeeping/days/{date}/employees/{employee}', [TimekeepingController::class, 'updateDayRecord']);
 
-Route::get('/attendance/records', [AttendanceController::class, 'records']);
-Route::patch('/attendance/records/{date}/employees/{employee}', [AttendanceController::class, 'updateRecord']);
 
 /*
 |--------------------------------------------------------------------------
@@ -68,4 +66,6 @@ Route::patch('/attendance/records/{date}/employees/{employee}', [AttendanceContr
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users', [UserController::class, 'index']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/attendance/records', [AttendanceController::class, 'records']);
+    Route::patch('/attendance/records/{date}', [AttendanceController::class, 'updateRecord']);
 });

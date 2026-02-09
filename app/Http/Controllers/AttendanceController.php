@@ -6,7 +6,7 @@ use App\Models\EmployeeAttendance;
 use App\Models\EmployeeTest;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class AttendanceController extends Controller
 {
@@ -14,32 +14,35 @@ class AttendanceController extends Controller
     {
         $date = $request->query('date');
         $dateValue = $date ? Carbon::parse($date) : Carbon::today();
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
 
-        $statusCase = "CASE WHEN ea.time_in IS NULL AND ea.time_out IS NULL THEN 'absent' WHEN ea.time_out IS NOT NULL THEN 'clocked-out' ELSE 'time-in' END";
+        $employee = $this->getEmployeeForUser($user);
 
-        $rows = EmployeeTest::query()
-            ->leftJoin('employee_attendances as ea', function ($join) use ($dateValue) {
-                $join->on('employees.id', '=', 'ea.employee_id')
-                    ->whereDate('ea.attendance_date', $dateValue->toDateString());
+
+        $rows = EmployeeAttendance::query()
+            ->where('employee_id', $employee->id)
+            ->when($date, function ($query) use ($dateValue) {
+                $query->whereDate('attendance_date', $dateValue->toDateString());
             })
-            ->select(
-                'employees.id',
-                'employees.name',
-                'employees.position',
-                'ea.time_in',
-                'ea.time_out',
-                DB::raw("{$statusCase} as status")
-            )
-            ->orderBy('employees.name')
+            ->orderByDesc('attendance_date')
             ->get()
-            ->map(function ($row) {
+                ->map(function ($row) {
+                $dateValue = Carbon::parse($row->attendance_date);
+                    $status = 'time-in';
+                    if (!$row->time_in && !$row->time_out) {
+                        $status = 'absent';
+                    } elseif ($row->time_out) {
+                        $status = 'clocked-out';
+                    }
                 return [
-                    'id' => $row->id,
-                    'name' => $row->name,
-                    'position' => $row->position,
+                    'date' => $dateValue->toDateString(),
+                    'dayOfWeek' => $dateValue->format('l'),
                     'timeIn' => $row->time_in,
                     'timeOut' => $row->time_out,
-                    'status' => $row->status
+                        'status' => $status
                 ];
             });
 
@@ -47,13 +50,24 @@ class AttendanceController extends Controller
             'data' => $rows,
             'meta' => [
                 'date' => $dateValue->toDateString(),
-                'dayOfWeek' => $dateValue->format('l')
+                'dayOfWeek' => $dateValue->format('l'),
+                'employee' => [
+                    'id' => $employee->id,
+                    'name' => $employee->name,
+                    'position' => $employee->position
+                ]
             ]
         ]);
     }
 
-    public function updateRecord(Request $request, string $date, EmployeeTest $employee)
+    public function updateRecord(Request $request, string $date)
     {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $employee = $this->getEmployeeForUser($user);
         $validated = $request->validate([
             'time_in' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
             'time_out' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/']
@@ -99,5 +113,17 @@ class AttendanceController extends Controller
         );
 
         return response()->json(['status' => 'ok']);
+    }
+
+    private function getEmployeeForUser($user): EmployeeTest
+    {
+        return EmployeeTest::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'name' => $user->full_name ?? trim(($user->last_name ?? '') . ', ' . ($user->first_name ?? '')),
+                'position' => 'Employee',
+                'rate' => 80
+            ]
+        );
     }
 }

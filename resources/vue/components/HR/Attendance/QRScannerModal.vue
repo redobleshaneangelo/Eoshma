@@ -3,7 +3,7 @@
         <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
             <!-- Modal Header -->
             <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                <h2 class="text-xl font-bold text-[#333333]">Scan QR Code</h2>
+                <h2 class="text-xl font-bold text-[#333333]">Scan QR Code - {{ scanLabel }}</h2>
                 <button
                     @click="closeModal"
                     class="text-gray-500 hover:text-gray-700 transition-colors"
@@ -31,7 +31,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
-                                <p class="text-sm opacity-75">Click "Start Scanner" to begin scanning</p>
+                                <p class="text-sm opacity-75">Waiting to start scanner...</p>
                             </div>
 
                             <!-- QR Code Overlay -->
@@ -103,28 +103,8 @@
                         </div>
                     </div>
 
-                    <!-- Time In / Time Out Actions -->
-                    <div v-if="scannedEmployee" class="flex gap-3">
-                        <button
-                            @click="recordTimeIn"
-                            :disabled="scannedEmployee.timeIn && !scannedEmployee.timeOut"
-                            class="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-semibold text-sm hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                        >
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Time In
-                        </button>
-                        <button
-                            @click="recordTimeOut"
-                            :disabled="!scannedEmployee.timeIn || scannedEmployee.timeOut"
-                            class="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-semibold text-sm hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                        >
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l-2-2m0 0l-2-2m2 2l2-2m-2 2l-2 2m11-11a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Time Out
-                        </button>
+                    <div v-if="scannedEmployee" class="text-sm text-gray-600">
+                        {{ resultHint }}
                     </div>
                 </div>
 
@@ -174,14 +154,22 @@
 </template>
 
 <script setup>
-    import { ref, onMounted, onUnmounted } from 'vue'
+    import { ref, computed, onMounted, onUnmounted } from 'vue'
     import Swal from 'sweetalert2'
 
     const props = defineProps({
         isOpen: Boolean,
-        employees: {
-            type: Array,
-            default: () => []
+        currentUser: {
+            type: Object,
+            default: () => ({})
+        },
+        todayRecord: {
+            type: Object,
+            default: null
+        },
+        scanMode: {
+            type: String,
+            default: 'in'
         }
     })
 
@@ -192,16 +180,21 @@
     const scannedEmployee = ref(null)
     const scanHistory = ref([])
 
-    const getRandomEmployee = () => {
-        const list = props.employees || []
-        if (!list.length) return null
-        return list[Math.floor(Math.random() * list.length)]
+    const scanLabel = computed(() => (props.scanMode === 'out' ? 'Time Out' : 'Time In'))
+    const resultHint = computed(() => `Recorded ${scanLabel.value.toLowerCase()} for today.`)
+
+    const getTodayDate = () => {
+        return new Date().toISOString().split('T')[0]
+    }
+
+    const formatTime = (date) => {
+        return date.toTimeString().slice(0, 8)
     }
 
     const startScanner = () => {
         scannerActive.value = true
         // TODO: Integrate with actual QR scanning library (e.g., jsQR, html5-qrcode)
-        // For now, simulate scanning by detecting key press
+        // For now, simulate scanning for the current user
         setTimeout(() => {
             simulateScan()
         }, 1000)
@@ -217,27 +210,26 @@
     const simulateScan = () => {
         if (!scannerActive.value) return
 
-        // Simulate random QR code scan
-        const employeeData = getRandomEmployee()
-        if (!employeeData) {
+        const employeeData = props.currentUser
+        if (!employeeData || !employeeData.name) {
             Swal.fire({
                 icon: 'info',
-                title: 'No employees',
-                text: 'No employee records available to scan.',
+                title: 'No user',
+                text: 'No user record available to scan.',
                 timer: 1500,
                 showConfirmButton: false
             })
             return
         }
 
-        // Find employee in list and merge with existing data
+        const record = props.todayRecord || {}
         scannedEmployee.value = {
-            id: employeeData.id,
+            id: employeeData.id || 'me',
             name: employeeData.name,
             department: '-',
             position: employeeData.position,
-            timeIn: employeeData.timeIn || null,
-            timeOut: employeeData.timeOut || null
+            timeIn: record.timeIn || null,
+            timeOut: record.timeOut || null
         }
 
         Swal.fire({
@@ -247,13 +239,19 @@
             timer: 1500,
             showConfirmButton: false
         })
+
+        if (props.scanMode === 'out') {
+            recordTimeOut()
+        } else {
+            recordTimeIn()
+        }
     }
 
     const recordTimeIn = () => {
         if (!scannedEmployee.value) return
 
         const now = new Date()
-        const timeInString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+        const timeInString = formatTime(now)
         
         scannedEmployee.value.timeIn = timeInString
 
@@ -274,7 +272,7 @@
 
         // Emit update to parent
         emit('update-attendance', {
-            employeeId: scannedEmployee.value.id,
+            date: getTodayDate(),
             timeIn: timeInString,
             timeOut: null
         })
@@ -288,18 +286,14 @@
         })
 
         // Continue scanning
-        if (scannerActive.value) {
-            setTimeout(() => {
-                simulateScan()
-            }, 2000)
-        }
+        stopScanner()
     }
 
     const recordTimeOut = () => {
         if (!scannedEmployee.value) return
 
         const now = new Date()
-        const timeOutString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+        const timeOutString = formatTime(now)
         
         scannedEmployee.value.timeOut = timeOutString
 
@@ -311,7 +305,7 @@
 
         // Emit update to parent
         emit('update-attendance', {
-            employeeId: scannedEmployee.value.id,
+            date: getTodayDate(),
             timeIn: scannedEmployee.value.timeIn,
             timeOut: timeOutString
         })
@@ -325,11 +319,7 @@
         })
 
         // Continue scanning
-        if (scannerActive.value) {
-            setTimeout(() => {
-                simulateScan()
-            }, 2000)
-        }
+        stopScanner()
     }
 
     const clearScanned = () => {
@@ -361,4 +351,5 @@
     onUnmounted(() => {
         stopScanner()
     })
+
 </script>
