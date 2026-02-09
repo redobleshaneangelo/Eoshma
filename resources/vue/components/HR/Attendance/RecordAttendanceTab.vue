@@ -7,6 +7,15 @@
             </div>
             <div class="flex items-center gap-3">
                 <button
+                    @click="openQRModal"
+                    class="px-5 py-2.5 bg-[#0c8ce9] text-white rounded-lg font-semibold text-sm hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
+                    </svg>
+                    My QR for Today
+                </button>
+                <button
                     @click="openQRScanner('in')"
                     class="px-5 py-2.5 bg-green-600 text-white rounded-lg font-semibold text-sm hover:bg-green-700 transition-colors flex items-center gap-2"
                 >
@@ -287,6 +296,40 @@
             @close="closeQRScanner"
             @update-attendance="handleAttendanceUpdate"
         />
+
+        <div v-if="showQRModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                    <h2 class="text-lg font-bold text-gray-800">My QR Code</h2>
+                    <button
+                        @click="closeQRModal"
+                        class="text-gray-500 hover:text-gray-700 transition-colors"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="px-6 py-6">
+                    <div class="text-sm text-gray-600 mb-4">
+                        Show this QR to the scanner for today.
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <div id="qrcode" class="w-[200px] h-[200px] flex items-center justify-center border border-gray-200 rounded"></div>
+                    </div>
+                    <div v-if="qrError" class="mt-4 text-sm text-red-600">{{ qrError }}</div>
+                    <div v-if="qrLoading" class="mt-4 text-sm text-gray-500">Generating QR code...</div>
+                </div>
+                <div class="border-t border-gray-200 px-6 py-4 flex justify-end">
+                    <button
+                        @click="closeQRModal"
+                        class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -299,6 +342,7 @@
 
     const auth = useAuthStore()
     const records = ref([])
+    const employeeId = ref(null)
     const searchQuery = ref('')
     const selectedStatus = ref('')
     const selectedDate = ref('')
@@ -308,6 +352,10 @@
     const pageSize = ref(10)
     const showQRScanner = ref(false)
     const scanMode = ref('in')
+    const showQRModal = ref(false)
+    const qrPayload = ref('')
+    const qrError = ref('')
+    const qrLoading = ref(false)
 
     const userLabel = computed(() => {
         const user = auth.user
@@ -323,6 +371,7 @@
         return {
             name: userLabel.value,
             id: user?.id || null,
+            employeeId: employeeId.value,
             position: user?.role || 'Employee'
         }
     })
@@ -412,8 +461,109 @@
         showQRScanner.value = false
     }
 
+    const getLocalDate = () => {
+        return new Date().toLocaleDateString('en-CA')
+    }
+
+    const openQRModal = async () => {
+        showQRModal.value = true
+        qrError.value = ''
+        qrLoading.value = true
+        qrPayload.value = ''
+        const today = getLocalDate()
+
+        try {
+            const response = await axios.get('/api/attendance/qr', {
+                params: { date: today }
+            })
+            qrPayload.value = response.data?.data?.payload || ''
+            generateQRCode()
+        } catch (error) {
+            console.error('Failed to load QR payload', error)
+            qrError.value = 'Failed to generate QR code.'
+        } finally {
+            qrLoading.value = false
+        }
+    }
+
+    const closeQRModal = () => {
+        showQRModal.value = false
+    }
+
+    const generateQRCode = () => {
+        if (!qrPayload.value) {
+            qrError.value = 'QR payload not available.'
+            return
+        }
+
+        setTimeout(() => {
+            try {
+                const qrData = qrPayload.value
+                const qrContainer = document.getElementById('qrcode')
+                if (!qrContainer) {
+                    return
+                }
+
+                qrContainer.innerHTML = ''
+
+                const tryQRServices = [
+                    `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`,
+                    `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(qrData)}`,
+                    `https://api.qr-code-generator.com/v1/create?access-token=demo&data=${encodeURIComponent(qrData)}&size=200`
+                ]
+
+                let currentServiceIndex = 0
+
+                const tryNextService = () => {
+                    if (currentServiceIndex >= tryQRServices.length) {
+                        qrContainer.innerHTML = `
+                            <div style="width: 200px; height: 200px; border: 2px solid #ccc; display: flex; align-items: center; justify-content: center; background: #f9f9f9;">
+                                <div style="text-align: center; padding: 10px;">
+                                    <div style="font-size: 12px; margin-bottom: 10px;">QR Code Data:</div>
+                                    <div style="font-size: 10px; word-break: break-all;">${qrData}</div>
+                                    <div style="font-size: 11px; margin-top: 10px; color: #666;">
+                                        Copy this data to any online QR generator
+                                    </div>
+                                </div>
+                            </div>
+                        `
+                        return
+                    }
+
+                    const qrUrl = tryQRServices[currentServiceIndex]
+
+                    const img = document.createElement('img')
+                    img.src = qrUrl
+                    img.alt = 'QR Code'
+                    img.style.width = '200px'
+                    img.style.height = '200px'
+
+                    img.onerror = () => {
+                        currentServiceIndex++
+                        tryNextService()
+                    }
+
+                    qrContainer.innerHTML = ''
+                    qrContainer.appendChild(img)
+                }
+
+                tryNextService()
+            } catch (error) {
+                console.error('Error in QR code generation:', error)
+                qrError.value = 'Error generating QR code.'
+            }
+        }, 100)
+    }
+
     const handleAttendanceUpdate = (data) => {
-        updateAttendance(data.date, data.timeIn || null, data.timeOut || null)
+        updateAttendance(
+            data.date,
+            data.timeIn || null,
+            data.timeOut || null,
+            data.timeInPhoto || null,
+            data.timeOutPhoto || null,
+            data.qrPayload || null
+        )
     }
 
     const getStatusBadgeClass = (status) => {
@@ -492,17 +642,21 @@
                 params: selectedDate.value ? { date: selectedDate.value } : {}
             })
             records.value = response.data?.data || []
+            employeeId.value = response.data?.meta?.employee?.id || null
             currentPage.value = 1
         } catch (error) {
             console.error('Failed to load attendance records', error)
         }
     }
 
-    const updateAttendance = async (date, timeIn, timeOut) => {
+    const updateAttendance = async (date, timeIn, timeOut, timeInPhoto, timeOutPhoto, qrPayload) => {
         try {
             await axios.patch(`/api/attendance/records/${date}`, {
                 time_in: timeIn,
-                time_out: timeOut
+                time_out: timeOut,
+                time_in_photo: timeInPhoto,
+                time_out_photo: timeOutPhoto,
+                qr_payload: qrPayload
             })
             await fetchRecords()
             Swal.fire({

@@ -68,4 +68,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/attendance/records', [AttendanceController::class, 'records']);
     Route::patch('/attendance/records/{date}', [AttendanceController::class, 'updateRecord']);
+    Route::get('/attendance/qr', [AttendanceController::class, 'qrCode']);
 });

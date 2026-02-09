@@ -14,7 +14,6 @@ class EmployeeTest extends Model
 
     protected $fillable = [
         'user_id',
-        'name',
         'position',
         'rate'
     ];
@@ -34,5 +33,27 @@ class EmployeeTest extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function getNameAttribute(): string
+    {
+        if (isset($this->attributes['name'])) {
+            return (string) $this->attributes['name'];
+        }
+
+        $user = $this->user;
+        if (!$user) {
+            return 'Unknown';
+        }
+
+        $middleInitial = $user->middle_name
+            ? strtoupper(substr($user->middle_name, 0, 1)) . '.'
+            : null;
+
+        return trim(collect([
+            $user->last_name . ',',
+            $user->first_name,
+            $middleInitial
+        ])->filter()->implode(' '));
     }
 }

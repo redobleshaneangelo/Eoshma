@@ -9,8 +9,11 @@ use App\Models\EmployeeAttendance;
 use App\Models\EmployeeTest;
 use App\Models\PayrollRun;
 use App\Models\StatutoryCompliance;
+use App\Models\Department;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 
 class PayrollTestSeeder extends Seeder
 {
@@ -21,7 +24,6 @@ class PayrollTestSeeder extends Seeder
         Allowance::query()->delete();
         Deduction::query()->delete();
         EmployeeAttendance::query()->delete();
-        EmployeeTest::query()->delete();
 
         $payrollTypes = ['hour', 'day', 'fixed'];
         $frequencies = ['Monthly', 'Semi-Monthly', 'Weekly', 'Bi-Weekly'];
@@ -91,11 +93,40 @@ class PayrollTestSeeder extends Seeder
                         'fixed' => 28800,
                         default => 80
                     };
-                    $employees->push(EmployeeTest::create([
-                        'name' => $names[$index] ?? "Employee {$index}",
-                        'position' => $positions[$index] ?? 'Staff',
-                        'rate' => $rate
-                    ]));
+                    $fullName = $names[$index] ?? "Employee {$index}";
+                    $nameParts = preg_split('/\s+/', trim($fullName));
+                    $lastName = array_pop($nameParts) ?? 'Employee';
+                    $firstName = $nameParts[0] ?? 'User';
+                    $middleName = count($nameParts) > 1
+                        ? implode(' ', array_slice($nameParts, 1))
+                        : null;
+                    $emailIndex = $index + 1;
+                    $user = User::updateOrCreate(
+                        ['email' => 'hr' . $emailIndex . '@gmail.com'],
+                        [
+                            'account_id' => 'ACC' . str_pad((string) $emailIndex, 4, '0', STR_PAD_LEFT),
+                            'last_name' => $lastName,
+                            'first_name' => $firstName,
+                            'middle_name' => $middleName,
+                            'phone' => '09' . str_pad((string) ($emailIndex + 100000000), 9, '0', STR_PAD_LEFT),
+                            'password' => Hash::make('eoshma123'),
+                            'role' => 'hr_manager',
+                            'status' => 1
+                        ]
+                    );
+
+                    Department::updateOrCreate(
+                        ['users_id' => $user->id],
+                        ['name' => 'HR']
+                    );
+
+                    $employees->push(EmployeeTest::updateOrCreate(
+                        ['user_id' => $user->id],
+                        [
+                            'position' => $positions[$index] ?? 'Staff',
+                            'rate' => $rate
+                        ]
+                    ));
                     $index++;
                 }
             }

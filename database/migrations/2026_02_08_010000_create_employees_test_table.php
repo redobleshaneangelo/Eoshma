@@ -10,7 +10,10 @@ return new class extends Migration
     {
         Schema::create('employees', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
+            $table->foreignId('user_id')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
             $table->string('position');
             $table->decimal('rate', 10, 2)->default(80);
             $table->timestamps();
