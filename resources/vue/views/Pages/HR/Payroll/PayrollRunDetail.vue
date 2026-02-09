@@ -688,7 +688,7 @@ const addAllowance = async () => {
     if (!employee || !newAllowance.value.type || !newAllowance.value.amount) return
     try {
         const response = await axios.post(`/api/payroll-runs/${runId}/allowances`, {
-            employee_test_id: employeeId,
+            employee_id: employeeId,
             type: newAllowance.value.type,
             amount: newAllowance.value.amount,
             notes: newAllowance.value.notes
@@ -725,7 +725,7 @@ const addDeduction = async () => {
     if (!employee || !newDeduction.value.type || !newDeduction.value.amount) return
     try {
         const response = await axios.post(`/api/payroll-runs/${runId}/deductions`, {
-            employee_test_id: employeeId,
+            employee_id: employeeId,
             type: newDeduction.value.type,
             amount: newDeduction.value.amount,
             notes: newDeduction.value.notes
@@ -829,7 +829,7 @@ const toggleEligibility = async (employee, checked) => {
     if (isEligibilityReadOnly.value) return
     try {
         const response = await axios.post(`/api/payroll-runs/${runId}/eligibilities`, {
-            employee_test_id: employee.id,
+            employee_id: employee.id,
             is_eligible: checked
         })
         const data = response.data?.data
@@ -850,7 +850,7 @@ const toggleAllEligible = async (checked) => {
     try {
         const employeeIds = attendanceSummary.value.map(employee => employee.id)
         await axios.post(`/api/payroll-runs/${runId}/eligibilities/bulk`, {
-            employee_test_ids: employeeIds,
+            employee_ids: employeeIds,
             is_eligible: checked
         })
         attendanceSummary.value = attendanceSummary.value.map(employee => ({

@@ -13,7 +13,7 @@ class ComputedPayroll extends Model
 
     protected $fillable = [
         'payroll_run_id',
-        'employee_test_id',
+        'employee_id',
         'basic_pay',
         'allowance_total',
         'deduction_total',

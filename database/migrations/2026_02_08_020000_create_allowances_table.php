@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('allowances', function (Blueprint $table) {
             $table->id();
             $table->foreignId('payroll_run_id')->constrained('payroll_runs')->cascadeOnDelete();
-            $table->foreignId('employee_test_id')->constrained('employees_test')->cascadeOnDelete();
+            $table->foreignId('employee_id')->constrained('employees')->cascadeOnDelete();
             $table->string('type');
             $table->decimal('amount', 12, 2)->default(0);
             $table->string('notes')->nullable();

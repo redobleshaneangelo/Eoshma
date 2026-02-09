@@ -11,7 +11,7 @@ class Deduction extends Model
 
     protected $fillable = [
         'payroll_run_id',
-        'employee_test_id',
+        'employee_id',
         'type',
         'amount',
         'notes'
@@ -26,6 +26,6 @@ class Deduction extends Model
 
     public function employee()
     {
-        return $this->belongsTo(EmployeeTest::class, 'employee_test_id');
+        return $this->belongsTo(EmployeeTest::class, 'employee_id');
     }
 }

@@ -69,20 +69,14 @@
                     </div>
                 </div>
 
-                <!-- Department Filter -->
+                <!-- Date Filter -->
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Department</label>
-                    <select
-                        v-model="selectedDepartment"
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Date</label>
+                    <input
+                        v-model="selectedDate"
+                        type="date"
                         class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0c8ce9]"
-                    >
-                        <option value="">All Departments</option>
-                        <option value="IT">IT</option>
-                        <option value="HR">HR</option>
-                        <option value="Finance">Finance</option>
-                        <option value="Sales">Sales</option>
-                        <option value="Operations">Operations</option>
-                    </select>
+                    />
                 </div>
 
                 <!-- Status Filter -->
@@ -93,7 +87,6 @@
                         class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0c8ce9]"
                     >
                         <option value="">All Status</option>
-                        <option value="present">Present</option>
                         <option value="time-in">Time In Only</option>
                         <option value="clocked-out">Clocked Out</option>
                         <option value="absent">Not Scanned</option>
@@ -179,27 +172,6 @@
                                     </svg>
                                 </button>
                             </th>
-                            <th class="px-6 py-3 text-left">
-                                <button
-                                    @click="toggleSort('department')"
-                                    class="text-xs font-semibold text-gray-700 uppercase tracking-wide hover:text-[#0c8ce9] transition-colors flex items-center gap-1"
-                                >
-                                    Department
-                                    <svg
-                                        v-if="sortField === 'department'"
-                                        class="w-3 h-3"
-                                        :class="sortDirection === 'asc' ? 'rotate-180' : ''"
-                                        fill="currentColor"
-                                        viewBox="0 0 20 20"
-                                    >
-                                        <path
-                                            fill-rule="evenodd"
-                                            d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z"
-                                            clip-rule="evenodd"
-                                        />
-                                    </svg>
-                                </button>
-                            </th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
                                 Position
                             </th>
@@ -225,7 +197,6 @@
                         >
                             <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ employee.id }}</td>
                             <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ employee.name }}</td>
-                            <td class="px-6 py-4 text-sm text-gray-700">{{ employee.department }}</td>
                             <td class="px-6 py-4 text-sm text-gray-700">{{ employee.position }}</td>
                             <td class="px-6 py-4 text-sm font-semibold">
                                 <span
@@ -336,30 +307,15 @@
 </template>
 
 <script setup>
-    import { ref, computed } from 'vue'
+    import { ref, computed, onMounted, watch } from 'vue'
+    import axios from 'axios'
     import Swal from 'sweetalert2'
     import QRScannerModal from './QRScannerModal.vue'
 
-    // Mock employee data
-    const mockEmployees = [
-        { id: 'EMP-00001', name: 'John Smith', department: 'IT', position: 'Software Engineer', timeIn: '08:00', timeOut: '17:30', status: 'present' },
-        { id: 'EMP-00002', name: 'Jane Doe', department: 'HR', position: 'HR Manager', timeIn: '09:00', timeOut: null, status: 'time-in' },
-        { id: 'EMP-00003', name: 'Bob Johnson', department: 'Finance', position: 'Accountant', timeIn: null, timeOut: null, status: 'absent' },
-        { id: 'EMP-00004', name: 'Alice Brown', department: 'Sales', position: 'Sales Executive', timeIn: '08:30', timeOut: '18:00', status: 'present' },
-        { id: 'EMP-00005', name: 'Charlie Wilson', department: 'IT', position: 'System Admin', timeIn: '08:15', timeOut: '17:45', status: 'present' },
-        { id: 'EMP-00006', name: 'Diana Garcia', department: 'Operations', position: 'Operations Lead', timeIn: '08:00', timeOut: null, status: 'time-in' },
-        { id: 'EMP-00007', name: 'Edward Martinez', department: 'Finance', position: 'Finance Manager', timeIn: null, timeOut: null, status: 'absent' },
-        { id: 'EMP-00008', name: 'Fiona Anderson', department: 'Sales', position: 'Sales Manager', timeIn: '08:45', timeOut: '17:00', status: 'present' },
-        { id: 'EMP-00009', name: 'George Thomas', department: 'IT', position: 'Web Developer', timeIn: '09:00', timeOut: null, status: 'time-in' },
-        { id: 'EMP-00010', name: 'Helen White', department: 'HR', position: 'Recruiter', timeIn: '08:30', timeOut: '17:30', status: 'present' },
-        { id: 'EMP-00011', name: 'Isaac Lee', department: 'Operations', position: 'Logistics Manager', timeIn: null, timeOut: null, status: 'absent' },
-        { id: 'EMP-00012', name: 'Julia Roberts', department: 'Finance', position: 'Auditor', timeIn: '08:00', timeOut: '17:15', status: 'present' }
-    ]
-
-    const employees = ref(mockEmployees)
+    const employees = ref([])
     const searchQuery = ref('')
-    const selectedDepartment = ref('')
     const selectedStatus = ref('')
+    const selectedDate = ref(new Date().toISOString().split('T')[0])
     const sortField = ref('name')
     const sortDirection = ref('asc')
     const currentPage = ref(1)
@@ -370,12 +326,11 @@
         let filtered = employees.value.filter(emp => {
             const matchSearch =
                 emp.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-                emp.id.toLowerCase().includes(searchQuery.value.toLowerCase())
+                String(emp.id).toLowerCase().includes(searchQuery.value.toLowerCase())
 
-            const matchDept = !selectedDepartment.value || emp.department === selectedDepartment.value
             const matchStatus = !selectedStatus.value || emp.status === selectedStatus.value
 
-            return matchSearch && matchDept && matchStatus
+            return matchSearch && matchStatus
         })
 
         // Sort
@@ -396,7 +351,7 @@
     })
 
     const notScannedCount = computed(() => {
-        return employees.value.filter(emp => emp.timeIn === null && emp.status === 'absent').length
+        return employees.value.filter(emp => emp.status === 'absent').length
     })
 
     const clockedOutCount = computed(() => {
@@ -404,7 +359,7 @@
     })
 
     const hasActiveFilters = computed(() => {
-        return searchQuery.value || selectedDepartment.value || selectedStatus.value
+        return searchQuery.value || selectedStatus.value || selectedDate.value
     })
 
     const totalPages = computed(() => {
@@ -451,18 +406,7 @@
     }
 
     const handleAttendanceUpdate = (data) => {
-        const employeeIndex = employees.value.findIndex(emp => emp.id === data.employeeId)
-        if (employeeIndex >= 0) {
-            employees.value[employeeIndex].timeIn = data.timeIn
-            employees.value[employeeIndex].timeOut = data.timeOut
-
-            // Update status
-            if (data.timeOut) {
-                employees.value[employeeIndex].status = 'present'
-            } else if (data.timeIn) {
-                employees.value[employeeIndex].status = 'time-in'
-            }
-        }
+        updateAttendance(data.employeeId, data.timeIn || null, data.timeOut || null)
     }
 
     const getStatusBadgeClass = (status) => {
@@ -487,7 +431,6 @@
 
     const clearFilters = () => {
         searchQuery.value = ''
-        selectedDepartment.value = ''
         selectedStatus.value = ''
         currentPage.value = 1
     }
@@ -514,20 +457,7 @@
             }
         }).then((result) => {
             if (result.isConfirmed) {
-                const employeeIndex = employees.value.findIndex(emp => emp.id === employee.id)
-                if (employeeIndex >= 0) {
-                    employees.value[employeeIndex].timeIn = result.value.timeIn || employee.timeIn
-                    employees.value[employeeIndex].timeOut = result.value.timeOut || employee.timeOut
-
-                    // Update status
-                    if (result.value.timeOut) {
-                        employees.value[employeeIndex].status = 'present'
-                    } else if (result.value.timeIn) {
-                        employees.value[employeeIndex].status = 'time-in'
-                    }
-                }
-
-                Swal.fire('Updated', 'Attendance record updated successfully', 'success')
+                updateAttendance(employee.id, result.value.timeIn || null, result.value.timeOut || null)
             }
         })
     }
@@ -547,4 +477,50 @@
     const goToPage = (page) => {
         currentPage.value = page
     }
+
+    const fetchEmployees = async () => {
+        try {
+            const response = await axios.get('/api/attendance/records', {
+                params: { date: selectedDate.value }
+            })
+            employees.value = response.data?.data || []
+            currentPage.value = 1
+        } catch (error) {
+            console.error('Failed to load attendance records', error)
+        }
+    }
+
+    const updateAttendance = async (employeeId, timeIn, timeOut) => {
+        try {
+            await axios.patch(`/api/attendance/records/${selectedDate.value}/employees/${employeeId}`, {
+                time_in: timeIn,
+                time_out: timeOut
+            })
+            await fetchEmployees()
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Attendance updated',
+                showConfirmButton: false,
+                timer: 2000
+            })
+        } catch (error) {
+            console.error('Failed to update attendance', error)
+            Swal.fire({
+                icon: 'error',
+                title: 'Update failed',
+                text: 'Please try again.',
+                confirmButtonColor: '#ef4444'
+            })
+        }
+    }
+
+    onMounted(() => {
+        fetchEmployees()
+    })
+
+    watch([selectedDate], () => {
+        fetchEmployees()
+    })
 </script>

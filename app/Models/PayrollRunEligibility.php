@@ -11,7 +11,7 @@ class PayrollRunEligibility extends Model
 
     protected $fillable = [
         'payroll_run_id',
-        'employee_test_id',
+        'employee_id',
         'is_eligible'
     ];
 

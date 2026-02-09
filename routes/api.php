@@ -8,6 +8,8 @@ use App\Http\Controllers\PrebiddingController;
 use App\Http\Controllers\MobilizationController;
 use App\Http\Controllers\RecruitmentController;
 use App\Http\Controllers\PayrollRunController;
+use App\Http\Controllers\TimekeepingController;
+use App\Http\Controllers\AttendanceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -50,6 +52,13 @@ Route::post('/payroll-runs/{payrollRun}/approve', [PayrollRunController::class, 
 Route::post('/payroll-runs/{payrollRun}/release-payslip', [PayrollRunController::class, 'releasePayslip']);
 Route::post('/payroll-runs/{payrollRun}/eligibilities', [PayrollRunController::class, 'updateEligibility']);
 Route::post('/payroll-runs/{payrollRun}/eligibilities/bulk', [PayrollRunController::class, 'bulkEligibility']);
+
+Route::get('/timekeeping/days', [TimekeepingController::class, 'days']);
+Route::get('/timekeeping/days/{date}', [TimekeepingController::class, 'dayDetail']);
+Route::patch('/timekeeping/days/{date}/employees/{employee}', [TimekeepingController::class, 'updateDayRecord']);
+
+Route::get('/attendance/records', [AttendanceController::class, 'records']);
+Route::patch('/attendance/records/{date}/employees/{employee}', [AttendanceController::class, 'updateRecord']);
 
 /*
 |--------------------------------------------------------------------------

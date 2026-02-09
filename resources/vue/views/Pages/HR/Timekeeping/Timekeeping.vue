@@ -64,7 +64,7 @@
                                 <input 
                                     v-model="filters.search"
                                     type="text"
-                                    placeholder="Search by employee name or ID..."
+                                    placeholder="Search by date (e.g., Feb 5, 2026)"
                                     class="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0c8ce9] focus:border-transparent"
                                 />
                                 <select 
@@ -131,25 +131,25 @@
                                                 <p class="text-sm text-gray-600 mt-1">{{ day.dayOfWeek }} • {{ day.recordCount }} Records</p>
                                                 <div class="flex gap-3 mt-2">
                                                     <span 
-                                                        v-if="day.status === 'present'"
+                                                        v-if="day.presentCount > 0"
                                                         class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700"
                                                     >
                                                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
-                                                        Present
+                                                        Present {{ day.presentCount }}
                                                     </span>
                                                     <span 
-                                                        v-else-if="day.status === 'late'"
+                                                        v-if="day.lateCount > 0"
                                                         class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-yellow-50 text-yellow-700"
                                                     >
                                                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
-                                                        Late
+                                                        Late {{ day.lateCount }}
                                                     </span>
                                                     <span 
-                                                        v-else-if="day.status === 'awol'"
+                                                        v-if="day.awolCount > 0"
                                                         class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-50 text-red-700"
                                                     >
                                                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
-                                                        AWOL
+                                                        AWOL {{ day.awolCount }}
                                                     </span>
                                                 </div>
                                             </div>
@@ -180,10 +180,6 @@
                             </div>
                         </div>
 
-                        <!-- Record Attendance Tab -->
-                        <div v-show="activeTab === 'record'" class="p-6">
-                            <RecordAttendanceTab />
-                        </div>
                     </div>
             </div>
 
@@ -195,12 +191,11 @@
 </template>
 
 <script setup>
-    import { ref, computed, onMounted } from 'vue'
+    import { ref, computed, onMounted, watch } from 'vue'
     import { useRouter } from 'vue-router'
     import axios from 'axios'
     import { useAuthStore } from '@/stores/auth'
     import AuthLayout from '@/views/Layouts/AuthLayout.vue'
-    import RecordAttendanceTab from '@/components/HR/Timekeeping/RecordAttendanceTab.vue'
     import agnes from '@/assets/agnes.gif'
     import Swal from 'sweetalert2'
 
@@ -214,10 +209,10 @@
 
     // Statistics
     const stats = ref({
-        presentToday: 2,
-        lateToday: 13,
-        awolToday: 12,
-        missingTimeOut: 100,
+        presentToday: 0,
+        lateToday: 0,
+        awolToday: 0,
+        missingTimeOut: 0,
         overtimeHours: 0
     })
 
@@ -229,112 +224,23 @@
         status: ''
     })
 
-    // Mock data - Replace with API call
-    const days = ref([
-        {
-            id: 1,
-            date: '2026-01-31',
-            dayOfWeek: 'Monday',
-            status: 'present',
-            recordCount: 4,
-            employees: [
-                { id: 1, name: 'John Smith', timeIn: '08:00', timeOut: '17:00', status: 'present' },
-                { id: 2, name: 'Jane Doe', timeIn: '08:05', timeOut: '17:00', status: 'present' },
-                { id: 3, name: 'Bob Johnson', timeIn: '08:00', timeOut: '17:00', status: 'present' },
-                { id: 4, name: 'Alice Brown', timeIn: '08:00', timeOut: '17:00', status: 'present' }
-            ]
-        },
-        {
-            id: 2,
-            date: '2026-01-30',
-            dayOfWeek: 'Sunday',
-            status: 'late',
-            recordCount: 4,
-            employees: [
-                { id: 1, name: 'John Smith', timeIn: '08:20', timeOut: '17:00', status: 'late' },
-                { id: 2, name: 'Jane Doe', timeIn: '08:00', timeOut: '17:00', status: 'present' },
-                { id: 3, name: 'Bob Johnson', timeIn: '08:15', timeOut: '17:00', status: 'late' },
-                { id: 4, name: 'Alice Brown', timeIn: '08:00', timeOut: '17:00', status: 'present' }
-            ]
-        },
-        {
-            id: 3,
-            date: '2026-01-29',
-            dayOfWeek: 'Saturday',
-            status: 'awol',
-            recordCount: 4,
-            employees: [
-                { id: 1, name: 'John Smith', timeIn: '08:00', timeOut: '17:00', status: 'present' },
-                { id: 2, name: 'Jane Doe', timeIn: null, timeOut: null, status: 'awol' },
-                { id: 3, name: 'Bob Johnson', timeIn: '08:00', timeOut: '17:00', status: 'present' },
-                { id: 4, name: 'Alice Brown', timeIn: '08:00', timeOut: '17:00', status: 'present' }
-            ]
-        },
-        {
-            id: 4,
-            date: '2026-01-28',
-            dayOfWeek: 'Friday',
-            status: 'present',
-            recordCount: 4,
-            employees: [
-                { id: 1, name: 'John Smith', timeIn: '08:00', timeOut: '17:00', status: 'present' },
-                { id: 2, name: 'Jane Doe', timeIn: '08:00', timeOut: '17:00', status: 'present' },
-                { id: 3, name: 'Bob Johnson', timeIn: '08:00', timeOut: '17:00', status: 'present' },
-                { id: 4, name: 'Alice Brown', timeIn: '08:00', timeOut: '17:00', status: 'present' }
-            ]
-        }
-    ])
+    const days = ref([])
 
     // Tabs configuration
     const tabs = computed(() => [
-        { 
-            id: 'overview', 
-            label: 'Overview', 
+        {
+            id: 'overview',
+            label: 'Overview',
             count: filteredDays.value.length,
             icon: '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M13 16h-1v-4h1m0-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
-        },
-        { 
-            id: 'record', 
-            label: 'Record Attendance', 
-            count: null,
-            icon: '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
         }
     ])
 
     // Computed: Filter days based on search and status
-    const filteredDays = computed(() => {
-        return days.value.filter(day => {
-            // Month/Year filter
-            const dayMonth = day.date.substring(5, 7)
-            const dayYear = day.date.substring(0, 4)
-            
-            const monthMatch = dayMonth === filters.value.month
-            const yearMatch = dayYear === filters.value.year
-            
-            // Status filter
-            const statusMatch = !filters.value.status || day.status === filters.value.status
-            
-            // Search filter (searches employee names)
-            let searchMatch = true
-            if (filters.value.search) {
-                searchMatch = day.employees.some(emp =>
-                    emp.name.toLowerCase().includes(filters.value.search.toLowerCase())
-                )
-            }
-
-            return monthMatch && yearMatch && statusMatch && searchMatch
-        })
-    })
+    const filteredDays = computed(() => days.value)
 
     // Helper: Get status color
-    const getStatusColor = (status) => {
-        const colors = {
-            present: 'bg-green-400',
-            late: 'bg-yellow-400',
-            awol: 'bg-red-400'
-        }
-        return colors[status] || 'bg-gray-400'
-    }
+    const getStatusColor = () => 'bg-blue-500'
 
     // Helper: Format date to readable format
     const formatDate = (dateString) => {
@@ -349,6 +255,57 @@
             params: { date: day.date },
             query: { dateTitle: formatDate(day.date) }
         })
+    }
+
+    const fetchDays = async () => {
+        try {
+            loading.value = true
+            const response = await axios.get('/api/timekeeping/days', {
+                params: {
+                    search: filters.value.search,
+                    month: filters.value.month,
+                    year: filters.value.year,
+                    status: filters.value.status
+                }
+            })
+            days.value = response.data?.data || []
+            updateStatsFromDays()
+        } catch (error) {
+            console.error('Failed to load timekeeping days', error)
+        } finally {
+            loading.value = false
+        }
+    }
+
+    const updateStatsFromDays = () => {
+        if (!days.value.length) {
+            stats.value = {
+                presentToday: 0,
+                lateToday: 0,
+                awolToday: 0,
+                missingTimeOut: 0,
+                overtimeHours: 0
+            }
+            return
+        }
+
+        const totals = days.value.reduce(
+            (acc, day) => {
+                acc.present += day.presentCount || 0
+                acc.late += day.lateCount || 0
+                acc.awol += day.awolCount || 0
+                return acc
+            },
+            { present: 0, late: 0, awol: 0 }
+        )
+
+        stats.value = {
+            presentToday: totals.present,
+            lateToday: totals.late,
+            awolToday: totals.awol,
+            missingTimeOut: 0,
+            overtimeHours: 0
+        }
     }
 
     // Handler: Record attendance
@@ -421,8 +378,10 @@
     }
 
     onMounted(() => {
-        // Initialize data from API
-        // TODO: Replace mock data with API call
-        // fetchTimekeepingData()
+        fetchDays()
     })
+
+    watch(filters, () => {
+        fetchDays()
+    }, { deep: true })
 </script>

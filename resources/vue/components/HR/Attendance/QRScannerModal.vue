@@ -192,14 +192,10 @@
     const scannedEmployee = ref(null)
     const scanHistory = ref([])
 
-    // Mock QR codes mapping to employee IDs
-    const qrCodeMap = {
-        'EMP001': { id: 'EMP-00001', name: 'John Smith', department: 'IT', position: 'Software Engineer' },
-        'EMP002': { id: 'EMP-00002', name: 'Jane Doe', department: 'HR', position: 'HR Manager' },
-        'EMP003': { id: 'EMP-00003', name: 'Bob Johnson', department: 'Finance', position: 'Accountant' },
-        'EMP004': { id: 'EMP-00004', name: 'Alice Brown', department: 'Sales', position: 'Sales Executive' },
-        'EMP005': { id: 'EMP-00005', name: 'Charlie Wilson', department: 'IT', position: 'System Admin' },
-        'EMP006': { id: 'EMP-00006', name: 'Diana Garcia', department: 'Operations', position: 'Operations Lead' }
+    const getRandomEmployee = () => {
+        const list = props.employees || []
+        if (!list.length) return null
+        return list[Math.floor(Math.random() * list.length)]
     }
 
     const startScanner = () => {
@@ -222,24 +218,26 @@
         if (!scannerActive.value) return
 
         // Simulate random QR code scan
-        const codes = Object.keys(qrCodeMap)
-        const randomCode = codes[Math.floor(Math.random() * codes.length)]
-        const employeeData = qrCodeMap[randomCode]
+        const employeeData = getRandomEmployee()
+        if (!employeeData) {
+            Swal.fire({
+                icon: 'info',
+                title: 'No employees',
+                text: 'No employee records available to scan.',
+                timer: 1500,
+                showConfirmButton: false
+            })
+            return
+        }
 
         // Find employee in list and merge with existing data
-        const existingEmployee = props.employees.find(emp => emp.id === employeeData.id)
-        if (existingEmployee) {
-            scannedEmployee.value = {
-                ...employeeData,
-                timeIn: existingEmployee.timeIn || null,
-                timeOut: existingEmployee.timeOut || null
-            }
-        } else {
-            scannedEmployee.value = {
-                ...employeeData,
-                timeIn: null,
-                timeOut: null
-            }
+        scannedEmployee.value = {
+            id: employeeData.id,
+            name: employeeData.name,
+            department: '-',
+            position: employeeData.position,
+            timeIn: employeeData.timeIn || null,
+            timeOut: employeeData.timeOut || null
         }
 
         Swal.fire({

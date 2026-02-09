@@ -5,10 +5,6 @@
 
         </div>
     </div>
-
-    <div class="fixed bottom-0 right-0 p-2 z-50">
-        <img :src="agnes" class="h-auto w-auto" v-if="loading" />
-    </div>
 </template>
 
 <script setup>

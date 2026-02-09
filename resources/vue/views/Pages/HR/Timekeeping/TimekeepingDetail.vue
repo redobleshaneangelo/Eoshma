@@ -36,7 +36,7 @@
                     <div class="grid grid-cols-4 gap-4 mb-8">
                         <div class="bg-white rounded-lg p-6 border border-gray-100 shadow-sm">
                             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Total Records</p>
-                            <p class="text-4xl font-bold text-[#0c8ce9]">{{ dayData.employees.length }}</p>
+                            <p class="text-4xl font-bold text-[#0c8ce9]">{{ totalRecords }}</p>
                             <p class="text-xs text-gray-500 mt-2">Employees</p>
                         </div>
                         <div class="bg-white rounded-lg p-6 border border-gray-100 shadow-sm">
@@ -108,7 +108,7 @@
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
                                     <tr
-                                        v-for="employee in filteredEmployees"
+                                        v-for="employee in employees"
                                         :key="employee.id"
                                         class="hover:bg-gray-50 transition-colors"
                                     >
@@ -128,7 +128,7 @@
                                         </td>
                                         <td class="px-6 py-4">
                                             <span v-if="employee.timeIn && employee.timeOut" class="text-gray-700">
-                                                {{ calculateWorkHours(employee.timeIn, employee.timeOut) }}h
+                                                {{ calculateWorkHours(employee.timeIn, employee.timeOut) }}
                                             </span>
                                             <span v-else class="text-gray-400 italic">—</span>
                                         </td>
@@ -157,7 +157,7 @@
                         </div>
 
                         <!-- Empty State -->
-                        <div v-if="filteredEmployees.length === 0" class="p-12 text-center">
+                        <div v-if="employees.length === 0" class="p-12 text-center">
                             <div class="text-gray-400 mb-3">
                                 <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -165,6 +165,40 @@
                             </div>
                             <p class="text-gray-600 font-medium">No records found</p>
                             <p class="text-sm text-gray-500 mt-1">Try adjusting your filters</p>
+                        </div>
+                    </div>
+                    <div v-if="meta.total > 0" class="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50">
+                        <div class="text-sm text-gray-600">
+                            Showing {{ (meta.current_page - 1) * meta.per_page + 1 }} to
+                            {{ Math.min(meta.current_page * meta.per_page, meta.total) }} of
+                            {{ meta.total }}
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button
+                                @click="previousPage"
+                                :disabled="meta.current_page === 1"
+                                class="px-3 py-1.5 border border-gray-300 rounded text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-400 transition-colors"
+                            >
+                                Previous
+                            </button>
+                            <div class="flex gap-1">
+                                <button
+                                    v-for="page in visiblePages"
+                                    :key="page"
+                                    @click="goToPage(page)"
+                                    :class="meta.current_page === page ? 'bg-[#0c8ce9] text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-100'"
+                                    class="px-3 py-1.5 rounded text-sm font-semibold transition-colors"
+                                >
+                                    {{ page }}
+                                </button>
+                            </div>
+                            <button
+                                @click="nextPage"
+                                :disabled="meta.current_page === meta.last_page"
+                                class="px-3 py-1.5 border border-gray-300 rounded text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-400 transition-colors"
+                            >
+                                Next
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -177,7 +211,7 @@
 </template>
 
 <script setup>
-    import { ref, computed, onMounted } from 'vue'
+    import { ref, computed, onMounted, watch } from 'vue'
     import { useRouter, useRoute } from 'vue-router'
     import axios from 'axios'
     import { useAuthStore } from '@/stores/auth'
@@ -192,58 +226,65 @@
     const loading = ref(false)
     const searchQuery = ref('')
     const statusFilter = ref('')
-
-    // Mock data - Replace with API call
+    const employees = ref([])
+    const meta = ref({
+        current_page: 1,
+        last_page: 1,
+        per_page: 10,
+        total: 0
+    })
     const dayData = ref({
-        date: '2026-01-31',
-        dayOfWeek: 'Monday',
-        employees: [
-            { id: 1, name: 'John Smith', timeIn: '08:00', timeOut: '17:00', status: 'present' },
-            { id: 2, name: 'Jane Doe', timeIn: '08:05', timeOut: '17:30', status: 'late' },
-            { id: 3, name: 'Bob Johnson', timeIn: null, timeOut: null, status: 'awol' },
-            { id: 4, name: 'Alice Brown', timeIn: '08:00', timeOut: '17:00', status: 'present' },
-            { id: 5, name: 'Charlie Wilson', timeIn: '08:15', timeOut: '17:00', status: 'late' },
-            { id: 6, name: 'Diana Garcia', timeIn: '08:00', timeOut: '16:45', status: 'present' }
-        ]
+        date: '',
+        dayOfWeek: ''
+    })
+    const summary = ref({
+        presentCount: 0,
+        lateCount: 0,
+        awolCount: 0
     })
 
     const dateTitle = computed(() => {
         const routeTitle = route.query.dateTitle
-        return routeTitle || 'Timekeeping Detail'
+        if (routeTitle) return routeTitle
+        if (dayData.value.date && dayData.value.dayOfWeek) {
+            return `${dayData.value.dayOfWeek} - ${dayData.value.date}`
+        }
+        return 'Timekeeping Detail'
     })
 
-    const presentCount = computed(() => {
-        return dayData.value.employees.filter(e => e.status === 'present').length
-    })
+    const presentCount = computed(() => summary.value.presentCount)
+    const lateCount = computed(() => summary.value.lateCount)
+    const awolCount = computed(() => summary.value.awolCount)
+    const totalRecords = computed(() => presentCount.value + lateCount.value + awolCount.value)
 
-    const lateCount = computed(() => {
-        return dayData.value.employees.filter(e => e.status === 'late').length
-    })
+    const visiblePages = computed(() => {
+        const pages = []
+        const maxVisible = 5
+        let start = Math.max(1, meta.value.current_page - Math.floor(maxVisible / 2))
+        let end = Math.min(meta.value.last_page, start + maxVisible - 1)
 
-    const awolCount = computed(() => {
-        return dayData.value.employees.filter(e => e.status === 'awol').length
-    })
+        if (end - start + 1 < maxVisible) {
+            start = Math.max(1, end - maxVisible + 1)
+        }
 
-    const filteredEmployees = computed(() => {
-        return dayData.value.employees.filter(emp => {
-            const matchesSearch = emp.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-                                  String(emp.id).includes(searchQuery.value)
-            const matchesStatus = !statusFilter.value || emp.status === statusFilter.value
-            return matchesSearch && matchesStatus
-        })
+        for (let i = start; i <= end; i++) {
+            pages.push(i)
+        }
+        return pages
     })
 
     // Helper: Calculate work hours
     const calculateWorkHours = (timeIn, timeOut) => {
-        if (!timeIn || !timeOut) return '0'
-        const [inH, inM] = timeIn.split(':').map(Number)
-        const [outH, outM] = timeOut.split(':').map(Number)
-        const inMinutes = inH * 60 + inM
-        const outMinutes = outH * 60 + outM
-        const diffMinutes = outMinutes - inMinutes
-        const hours = Math.floor(diffMinutes / 60)
-        const minutes = diffMinutes % 60
-        return minutes > 0 ? `${hours}.${String(Math.round(minutes / 6)).padStart(2, '0')}` : String(hours)
+        if (!timeIn || !timeOut) return '00:00:00'
+        const [inH, inM, inS = '0'] = timeIn.split(':')
+        const [outH, outM, outS = '0'] = timeOut.split(':')
+        const inSeconds = Number(inH) * 3600 + Number(inM) * 60 + Number(inS)
+        const outSeconds = Number(outH) * 3600 + Number(outM) * 60 + Number(outS)
+        const diffSeconds = Math.max(outSeconds - inSeconds, 0)
+        const hours = Math.floor(diffSeconds / 3600)
+        const minutes = Math.floor((diffSeconds % 3600) / 60)
+        const seconds = diffSeconds % 60
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
     }
 
     // Helper: Get status badge class
@@ -279,14 +320,6 @@
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Time Out</label>
                         <input type="time" id="timeOut" value="${employee.timeOut || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg" />
                     </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Status</label>
-                        <select id="status" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                            <option value="present" ${employee.status === 'present' ? 'selected' : ''}>Present</option>
-                            <option value="late" ${employee.status === 'late' ? 'selected' : ''}>Late</option>
-                            <option value="awol" ${employee.status === 'awol' ? 'selected' : ''}>AWOL</option>
-                        </select>
-                    </div>
                 </div>
             `,
             confirmButtonText: 'Save Changes',
@@ -300,20 +333,27 @@
             if (result.isConfirmed) {
                 const timeIn = document.getElementById('timeIn').value
                 const timeOut = document.getElementById('timeOut').value
-                const status = document.getElementById('status').value
-
-                const emp = dayData.value.employees.find(e => e.id === employee.id)
-                if (emp) {
-                    emp.timeIn = timeIn || null
-                    emp.timeOut = timeOut || null
-                    emp.status = status
-                }
-
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Record Updated',
-                    text: `${employee.name}'s timekeeping record has been updated.`,
-                    confirmButtonColor: '#0c8ce9'
+                axios.patch(`/api/timekeeping/days/${dayData.value.date}/employees/${employee.id}`, {
+                    time_in: timeIn || null,
+                    time_out: timeOut || null
+                }).then(() => {
+                    fetchDetail()
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'success',
+                        title: 'Record updated',
+                        showConfirmButton: false,
+                        timer: 2000
+                    })
+                }).catch((error) => {
+                    console.error('Failed to update record', error)
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Update failed',
+                        text: 'Please try again.',
+                        confirmButtonColor: '#ef4444'
+                    })
                 })
             }
         })
@@ -359,7 +399,7 @@
                         <div class="summary-cards">
                             <div class="summary-card">
                                 <div class="summary-card-label">Total Records</div>
-                                <div class="summary-card-value" style="color: #0c8ce9;">${dayData.value.employees.length}</div>
+                                <div class="summary-card-value" style="color: #0c8ce9;">${totalRecords.value}</div>
                             </div>
                             <div class="summary-card">
                                 <div class="summary-card-label">Present</div>
@@ -389,13 +429,13 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${filteredEmployees.value.map(emp => `
+                                    ${employees.value.map(emp => `
                                         <tr>
                                             <td>#${String(emp.id).padStart(4, '0')}</td>
                                             <td>${emp.name}</td>
                                             <td>${emp.timeIn || '—'}</td>
                                             <td>${emp.timeOut || '—'}</td>
-                                            <td>${(emp.timeIn && emp.timeOut) ? calculateWorkHours(emp.timeIn, emp.timeOut) + 'h' : '—'}</td>
+                                            <td>${(emp.timeIn && emp.timeOut) ? calculateWorkHours(emp.timeIn, emp.timeOut) : '—'}</td>
                                             <td>${emp.status.charAt(0).toUpperCase() + emp.status.slice(1)}</td>
                                         </tr>
                                     `).join('')}
@@ -476,7 +516,7 @@
                         <div class="summary-cards">
                             <div class="summary-card">
                                 <div class="summary-card-label">Total Records</div>
-                                <div class="summary-card-value" style="color: #0c8ce9;">${dayData.value.employees.length}</div>
+                                <div class="summary-card-value" style="color: #0c8ce9;">${totalRecords.value}</div>
                             </div>
                             <div class="summary-card">
                                 <div class="summary-card-label">Present</div>
@@ -506,13 +546,13 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${filteredEmployees.value.map(emp => `
+                                    ${employees.value.map(emp => `
                                         <tr>
                                             <td>#${String(emp.id).padStart(4, '0')}</td>
                                             <td>${emp.name}</td>
                                             <td>${emp.timeIn || '—'}</td>
                                             <td>${emp.timeOut || '—'}</td>
-                                            <td>${(emp.timeIn && emp.timeOut) ? calculateWorkHours(emp.timeIn, emp.timeOut) + 'h' : '—'}</td>
+                                            <td>${(emp.timeIn && emp.timeOut) ? calculateWorkHours(emp.timeIn, emp.timeOut) : '—'}</td>
                                             <td>${emp.status.charAt(0).toUpperCase() + emp.status.slice(1)}</td>
                                         </tr>
                                     `).join('')}
@@ -543,11 +583,66 @@
         }
     }
 
+    const fetchDetail = async () => {
+        const date = route.params.date
+        if (!date) return
+        try {
+            loading.value = true
+            const response = await axios.get(`/api/timekeeping/days/${date}`, {
+                params: {
+                    page: meta.value.current_page,
+                    per_page: meta.value.per_page,
+                    search: searchQuery.value,
+                    status: statusFilter.value
+                }
+            })
+            employees.value = response.data?.data || []
+            meta.value = response.data?.meta || meta.value
+            summary.value = response.data?.summary || summary.value
+            dayData.value = {
+                date: summary.value.date || date,
+                dayOfWeek: summary.value.dayOfWeek || ''
+            }
+        } catch (error) {
+            console.error('Failed to load timekeeping detail', error)
+        } finally {
+            loading.value = false
+        }
+    }
+
+    const previousPage = () => {
+        if (meta.value.current_page > 1) {
+            meta.value.current_page -= 1
+            fetchDetail()
+        }
+    }
+
+    const nextPage = () => {
+        if (meta.value.current_page < meta.value.last_page) {
+            meta.value.current_page += 1
+            fetchDetail()
+        }
+    }
+
+    const goToPage = (page) => {
+        if (page !== meta.value.current_page) {
+            meta.value.current_page = page
+            fetchDetail()
+        }
+    }
+
+    watch([searchQuery, statusFilter], () => {
+        meta.value.current_page = 1
+        fetchDetail()
+    })
+
+    watch(() => route.params.date, () => {
+        meta.value.current_page = 1
+        fetchDetail()
+    })
+
     onMounted(() => {
-        // Fetch data from API based on route param
-        // const date = route.params.date
-        // TODO: Replace mock data with API call
-        // fetchTimekeepingDetail(date)
+        fetchDetail()
     })
 </script>
 

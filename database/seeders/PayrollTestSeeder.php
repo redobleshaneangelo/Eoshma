@@ -38,7 +38,19 @@ class PayrollTestSeeder extends Seeder
             'Paolo Reyes',
             'Kim Lee',
             'Eric Tan',
-            'Lara Santos'
+            'Lara Santos',
+            'Mark Rivera',
+            'Chloe Bautista',
+            'Ivan Garcia',
+            'Sofia dela Cruz',
+            'Nico Alvarez',
+            'Grace Torres',
+            'Peter Goh',
+            'Ava Santiago',
+            'Oscar Lim',
+            'Jade Villanueva',
+            'Ken Morales',
+            'Bea Ramos'
         ];
 
         $positions = [
@@ -53,29 +65,44 @@ class PayrollTestSeeder extends Seeder
             'Drafting Specialist',
             'Quality Inspector',
             'Warehouse Lead',
-            'Admin Assistant'
+            'Admin Assistant',
+            'Procurement Analyst',
+            'Project Scheduler',
+            'QA Specialist',
+            'Logistics Coordinator',
+            'Site Inspector',
+            'Maintenance Lead',
+            'HR Assistant',
+            'Payroll Clerk',
+            'Safety Engineer',
+            'Planning Officer',
+            'Inventory Staff',
+            'Executive Assistant'
         ];
 
         $employees = collect();
         $index = 0;
+        $employeesPerCombo = 2;
         foreach ($payrollTypes as $type) {
             foreach ($frequencies as $frequency) {
-                $rate = match ($type) {
-                    'day' => 800,
-                    'fixed' => 28800,
-                    default => 80
-                };
-                $employees->push(EmployeeTest::create([
-                    'name' => $names[$index] ?? "Employee {$index}",
-                    'position' => $positions[$index] ?? 'Staff',
-                    'rate' => $rate
-                ]));
-                $index++;
+                for ($i = 0; $i < $employeesPerCombo; $i++) {
+                    $rate = match ($type) {
+                        'day' => 800,
+                        'fixed' => 28800,
+                        default => 80
+                    };
+                    $employees->push(EmployeeTest::create([
+                        'name' => $names[$index] ?? "Employee {$index}",
+                        'position' => $positions[$index] ?? 'Staff',
+                        'rate' => $rate
+                    ]));
+                    $index++;
+                }
             }
         }
 
-        $payrollStart = Carbon::parse('2026-01-01');
-        $payrollEnd = Carbon::parse('2026-02-28');
+        $payrollStart = Carbon::parse('2026-02-01');
+        $payrollEnd = $payrollStart->copy()->addDays(4);
 
         $dateRange = collect();
         for ($i = 0; $i <= $payrollStart->diffInDays($payrollEnd); $i++) {
@@ -85,12 +112,25 @@ class PayrollTestSeeder extends Seeder
         $employees->each(function ($employee, $index) use ($payrollTypes, $frequencies, $dateRange, $payrollStart, $payrollEnd) {
             $type = $payrollTypes[intdiv($index, count($frequencies))] ?? 'hour';
             $frequency = $frequencies[$index % count($frequencies)] ?? 'Weekly';
-            foreach ($dateRange as $date) {
+            foreach ($dateRange as $dayIndex => $date) {
+                $pattern = ($index + $dayIndex) % 5;
+                $timeIn = '08:00:00';
+                $timeOut = '17:00:00';
+
+                if ($pattern === 1) {
+                    $timeIn = '08:20:00';
+                } elseif ($pattern === 2) {
+                    $timeIn = '07:55:00';
+                } elseif ($pattern === 3) {
+                    $timeIn = null;
+                    $timeOut = null;
+                }
+
                 EmployeeAttendance::create([
-                    'employee_test_id' => $employee->id,
+                    'employee_id' => $employee->id,
                     'attendance_date' => $date->toDateString(),
-                    'time_in' => '08:00:00',
-                    'time_out' => '17:00:00',
+                    'time_in' => $timeIn,
+                    'time_out' => $timeOut,
                     'payroll_start' => $payrollStart->toDateString(),
                     'payroll_end' => $payrollEnd->toDateString(),
                     'payroll_type' => $type,
@@ -121,7 +161,7 @@ class PayrollTestSeeder extends Seeder
                 ->where('payroll_type', $run->group)
                 ->where('payroll_frequency', $run->frequency)
                 ->get()
-                ->groupBy('employee_test_id');
+                ->groupBy('employee_id');
 
             $periodsPerYear = match ($run->frequency) {
                 'Monthly' => 12,
@@ -160,7 +200,7 @@ class PayrollTestSeeder extends Seeder
 
                 $allowance = Allowance::create([
                     'payroll_run_id' => $run->id,
-                    'employee_test_id' => $employee->id,
+                    'employee_id' => $employee->id,
                     'type' => 'Meal Allowance',
                     'amount' => 500,
                     'notes' => 'Seeded allowance'
@@ -168,7 +208,7 @@ class PayrollTestSeeder extends Seeder
 
                 $deduction = Deduction::create([
                     'payroll_run_id' => $run->id,
-                    'employee_test_id' => $employee->id,
+                    'employee_id' => $employee->id,
                     'type' => 'Loan',
                     'amount' => 300,
                     'notes' => 'Seeded deduction'
@@ -184,7 +224,7 @@ class PayrollTestSeeder extends Seeder
 
                 ComputedPayroll::create([
                     'payroll_run_id' => $run->id,
-                    'employee_test_id' => $employee->id,
+                    'employee_id' => $employee->id,
                     'basic_pay' => $basicPay,
                     'allowance_total' => $allowanceTotal,
                     'deduction_total' => $deductionTotal,
